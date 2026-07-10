@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  database:
+    image: mongo:latest
+    container_name: tracker_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: always
+
+  backend:
+    build: ./backend
+    container_name: tracker_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGODB_URI=mongodb://database:27017/internship_tracker
+      - JWT_SECRET=tracker_super_secret_key_change_in_prod
+    depends_on:
+      - database
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: tracker_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  mongo-data:
