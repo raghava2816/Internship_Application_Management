@@ -5,10 +5,7 @@ import {
   TrendingUp, 
   Award, 
   CalendarDays,
-  Activity,
-  ArrowUpRight,
-  Target,
-  Users
+  ArrowUpRight
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -20,8 +17,6 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell
 } from 'recharts';
 import { useAppData } from '../context/AppDataContext';
@@ -63,17 +58,74 @@ export const Dashboard: React.FC = () => {
     }));
   }, [applications]);
 
-  // Chart data: Monthly applications velocity
-  const monthlyData = [
-    { name: 'Feb', applications: 2 },
-    { name: 'Mar', applications: 5 },
-    { name: 'Apr', applications: 8 },
-    { name: 'May', applications: 12 },
-    { name: 'Jun', applications: 15 },
-    { name: 'Jul', applications: totalApps }
-  ];
+  // Dynamic applications percentage change vs last month
+  const lastMonthAppsText = React.useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    
+    const currentMonthCount = applications.filter(a => {
+      if (!a.appliedDate) return false;
+      const d = new Date(a.appliedDate);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    }).length;
 
-  const COLORS = ['#6366f1', '#06b6d4', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
+    const lastMonthCount = applications.filter(a => {
+      if (!a.appliedDate) return false;
+      const d = new Date(a.appliedDate);
+      return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
+    }).length;
+
+    if (lastMonthCount === 0) {
+      return currentMonthCount > 0 ? `+${currentMonthCount} added this month` : 'No new entries';
+    }
+    const percent = Math.round(((currentMonthCount - lastMonthCount) / lastMonthCount) * 100);
+    return percent >= 0 ? `+${percent}% vs last month` : `${percent}% vs last month`;
+  }, [applications]);
+
+  // Chart data: Monthly applications velocity (Calculated dynamically)
+  const monthlyData = React.useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const result: { name: string; applications: number }[] = [];
+    const now = new Date();
+    
+    // Generate the last 6 months chronologically
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      result.push({
+        name: months[d.getMonth()],
+        applications: 0
+      });
+    }
+
+    // Accumulate application count
+    applications.forEach(app => {
+      if (!app.appliedDate) return;
+      const appDate = new Date(app.appliedDate);
+      if (isNaN(appDate.getTime())) return;
+      
+      const monthName = months[appDate.getMonth()];
+      const match = result.find(r => r.name === monthName);
+      if (match) {
+        match.applications++;
+      }
+    });
+
+    // Transform to cumulative total to show submission velocity growth trend
+    let cumulative = 0;
+    return result.map(item => {
+      cumulative += item.applications;
+      return {
+        name: item.name,
+        applications: cumulative
+      };
+    });
+  }, [applications]);
+
+  const COLORS = ['#10B981', '#6EE7B7', '#22D3EE', '#059669', '#34D399', '#06B6D4'];
 
   return (
     <div className="space-y-6">
@@ -97,10 +149,10 @@ export const Dashboard: React.FC = () => {
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Applications</span>
               <span className="text-3xl font-extrabold block mt-1">{totalApps}</span>
               <span className="text-xs text-accent-success font-semibold flex items-center gap-0.5 mt-1">
-                +12% vs last month
+                {lastMonthAppsText}
               </span>
             </div>
-            <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl">
+            <div className="p-3 bg-primary/10 text-primary rounded-xl">
               <Trello className="h-6 w-6" />
             </div>
           </CardContent>
@@ -115,7 +167,7 @@ export const Dashboard: React.FC = () => {
                 Active: {activeResume ? activeResume.version : 'None'}
               </span>
             </div>
-            <div className="p-3 bg-cyan-500/10 text-cyan-500 rounded-xl">
+            <div className="p-3 bg-accent/10 text-accent rounded-xl">
               <FileText className="h-6 w-6" />
             </div>
           </CardContent>
@@ -127,10 +179,10 @@ export const Dashboard: React.FC = () => {
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Progression Rate</span>
               <span className="text-3xl font-extrabold block mt-1">{interviewRate}%</span>
               <span className="text-xs text-muted-foreground font-medium block mt-1">
-                Ratio of OA / Interviews
+                Ratio of progressed stages
               </span>
             </div>
-            <div className="p-3 bg-pink-500/10 text-pink-500 rounded-xl">
+            <div className="p-3 bg-secondary/20 text-primary rounded-xl">
               <TrendingUp className="h-6 w-6" />
             </div>
           </CardContent>
@@ -142,10 +194,10 @@ export const Dashboard: React.FC = () => {
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Offer success Rate</span>
               <span className="text-3xl font-extrabold block mt-1">{offerRate}%</span>
               <span className="text-xs text-accent-success font-semibold flex items-center gap-0.5 mt-1">
-                Offer Stage reached
+                {applications.filter(a => a.status === 'Offer' || a.status === 'Accepted').length} offers secured
               </span>
             </div>
-            <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
+            <div className="p-3 bg-primary/10 text-primary rounded-xl">
               <Award className="h-6 w-6" />
             </div>
           </CardContent>
@@ -166,15 +218,15 @@ export const Dashboard: React.FC = () => {
                 <AreaChart data={monthlyData}>
                   <defs>
                     <linearGradient id="colorApps" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                   <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 11 }} />
                   <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
                   <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155' }} />
-                  <Area type="monotone" dataKey="applications" stroke="#6366f1" fillOpacity={1} fill="url(#colorApps)" />
+                  <Area type="monotone" dataKey="applications" stroke="#10b981" fillOpacity={1} fill="url(#colorApps)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -197,7 +249,7 @@ export const Dashboard: React.FC = () => {
                     <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
                     <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155' }} />
                     <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                      {statusChartData.map((entry, index) => (
+                      {statusChartData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Bar>

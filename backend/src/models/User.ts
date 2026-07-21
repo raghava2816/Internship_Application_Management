@@ -1,7 +1,31 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-const UserSchema = new Schema({
+export interface IUser extends Document {
+  name: string;
+  email: string;
+  password?: string;
+  role: 'user' | 'admin';
+  googleId: string;
+  githubId: string;
+  avatarUrl: string;
+  linkedinUrl: string;
+  githubUrl: string;
+  portfolioUrl: string;
+  bio: string;
+  skills: string[];
+  settings: {
+    theme: 'light' | 'dark' | 'system';
+    notifications: {
+      email: boolean;
+      push: boolean;
+      deadlineReminderDays: number;
+    }
+  };
+  comparePassword(password: string): Promise<boolean>;
+}
+
+const UserSchema = new Schema<IUser>({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String }, // Optional for OAuth users
@@ -27,7 +51,7 @@ const UserSchema = new Schema({
 });
 
 // Hash password before saving
-UserSchema.pre('save', async function (next) {
+UserSchema.pre<IUser>('save', async function (next) {
   if (!this.isModified('password') || !this.password) return next();
   try {
     const salt = await bcrypt.genSalt(10);
@@ -39,9 +63,10 @@ UserSchema.pre('save', async function (next) {
 });
 
 // Compare password method
-UserSchema.methods.comparePassword = async function (password: string): Promise<boolean> {
+UserSchema.methods.comparePassword = async function (this: IUser, password: string): Promise<boolean> {
+  if (!this.password) return false;
   return bcrypt.compare(password, this.password);
 };
 
-export const User = model('User', UserSchema);
+export const User = model<IUser>('User', UserSchema);
 export default User;

@@ -1,22 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   MessageSquare, 
   Send, 
-  Sparkles, 
   Briefcase, 
-  TrendingUp, 
   MapPin, 
   DollarSign,
-  ChevronRight,
-  User,
   Compass,
   ArrowRight,
-  ClipboardList
+  Zap
 } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
+import { fetchStream } from '../hooks/useSSE';
 import axios from 'axios';
 
 interface Message {
@@ -37,8 +34,11 @@ export const CareerCoach: React.FC = () => {
   ]);
   const [inputText, setInputText] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [streamingText, setStreamingText] = useState(''); // live token buffer
+  const [isStreaming, setIsStreaming] = useState(false);
+  const streamController = useRef<AbortController | null>(null);
   const [coachTab, setCoachTab] = useState<'chat' | 'jobs' | 'negotiate'>('chat');
-  const [chatId, setChatId] = useState<string | null>(null);
+  const [chatId, _setChatId] = useState<string | null>(null);
 
   // Recommendations state
   const [recommendations, setRecommendations] = useState<any[]>([]);
@@ -105,9 +105,12 @@ export const CareerCoach: React.FC = () => {
     }
   }, [coachTab]);
 
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = useCallback(async (textToSend?: string) => {
     const text = textToSend || inputText;
-    if (!text.trim()) return;
+    if (!text.trim() || isStreaming) return;
+
+    // Cancel any in-flight stream
+    streamController.current?.abort();
 
     setInputText('');
     const userMsg: Message = {
@@ -115,56 +118,57 @@ export const CareerCoach: React.FC = () => {
       content: text,
       timestamp: new Date().toISOString()
     };
-    
-    setMessages(prev => [...prev, userMsg]);
+
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
+    setStreamingText('');
+    setIsStreaming(true);
     setChatLoading(true);
 
-    try {
-      const token = localStorage.getItem('token');
-      const payload = {
-        messages: [...messages, userMsg].map(m => ({ sender: m.sender, content: m.content })),
-        chatId
-      };
-      
-      const res = await axios.post('/api/ai/coach-chat', payload, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+    let accText = '';
 
-      if (res.data.success) {
-        setMessages(prev => [...prev, {
-          sender: 'assistant',
-          content: res.data.responseText,
-          timestamp: new Date().toISOString()
-        }]);
-        if (res.data.data?._id) {
-          setChatId(res.data.data._id);
+    const controller = fetchStream(
+      '/api/ai/stream-coach',
+      {
+        messages: updatedMessages.map(m => ({ sender: m.sender, content: m.content })),
+        resumeText: activeResume?.textContent || '',
+        chatId
+      },
+      {
+        onEvent: (event, data: any) => {
+          if (event === 'token' && data?.token) {
+            accText += data.token;
+            setStreamingText(accText);
+          }
+          if (event === 'start') setChatLoading(false);
+        },
+        onDone: () => {
+          // Commit streamed text as a real message
+          setMessages(prev => [
+            ...prev,
+            { sender: 'assistant', content: accText || 'Done!', timestamp: new Date().toISOString() }
+          ]);
+          setStreamingText('');
+          setIsStreaming(false);
+        },
+        onError: () => {
+          // Fallback: add error message
+          setMessages(prev => [
+            ...prev,
+            {
+              sender: 'assistant',
+              content: accText || 'Sorry, there was a connection issue. Please try again.',
+              timestamp: new Date().toISOString()
+            }
+          ]);
+          setStreamingText('');
+          setIsStreaming(false);
+          setChatLoading(false);
         }
       }
-    } catch {
-      // Offline chatbot fallback logic
-      setTimeout(() => {
-        const lowerText = text.toLowerCase();
-        let response = "I'm analyze your target guidelines. Could you please specify which tech stack fits best?";
-        
-        if (lowerText.includes('salary') || lowerText.includes('negotiat')) {
-          response = "When negotiating salary options, always wait for the company range first. Request an additional 10-15% margin based on local market reports, pointing to specific technical projects and speed contributions you made in previous roles.";
-        } else if (lowerText.includes('resume') || lowerText.includes('ats')) {
-          response = "To optimize your ATS checks, ensure sections are structured in single-column PDF text. Eliminate graph meters, graphic sliders, and raw images. Highlight keywords like TypeScript, React 19, and Node.js explicitly.";
-        } else if (lowerText.includes('interview') || lowerText.includes('prep')) {
-          response = "Focus your technical interview study on system designs (rate limiters, DB scaling), core coding structures (DFS, sliding window), and standard STAR behavioral scenario templates.";
-        }
-
-        setMessages(prev => [...prev, {
-          sender: 'assistant',
-          content: response,
-          timestamp: new Date().toISOString()
-        }]);
-        setChatLoading(false);
-      }, 1000);
-    } finally {
-      setChatLoading(false);
-    }
-  };
+    );
+    streamController.current = controller;
+  }, [inputText, isStreaming, messages, activeResume, chatId]);
 
   const templates = [
     { label: 'Salary Negotiation strategies', query: 'Show me salary negotiation rules and templates.' },
@@ -234,11 +238,24 @@ export const CareerCoach: React.FC = () => {
                   </div>
                 </div>
               ))}
-              {chatLoading && (
+              {/* Live streaming bubble — shows tokens as they arrive */}
+              {isStreaming && streamingText && (
+                <div className="flex gap-3 max-w-[80%]">
+                  <div className="h-8 w-8 rounded-full bg-secondary text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                    <Zap className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div className="p-3.5 rounded-2xl rounded-tl-none text-xs leading-relaxed font-semibold shadow-sm border border-border/40 dark:border-white/5 bg-card-light dark:bg-card-dark">
+                    <p className="whitespace-pre-wrap">{streamingText}<span className="inline-block w-0.5 h-3.5 bg-primary ml-0.5 animate-pulse align-middle" /></p>
+                  </div>
+                </div>
+              )}
+              {chatLoading && !streamingText && (
                 <div className="flex gap-3 max-w-[80%]">
                   <div className="h-8 w-8 rounded-full bg-secondary text-primary flex items-center justify-center text-xs font-bold animate-pulse">AI</div>
-                  <div className="p-3 bg-secondary rounded-2xl rounded-tl-none text-xs text-muted-foreground animate-pulse font-semibold">
-                    Typing feedback summary...
+                  <div className="p-3 bg-secondary rounded-2xl rounded-tl-none text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               )}
@@ -255,8 +272,13 @@ export const CareerCoach: React.FC = () => {
                   placeholder="Ask the advisor about STAR bullets, salary estimations, interview rounds..."
                   className="flex-1 h-10 text-xs"
                 />
-                <Button onClick={() => handleSendMessage()} className="gradient-primary h-10 w-10 p-0 shrink-0">
-                  <Send className="h-4 w-4" />
+                <Button
+                  onClick={() => isStreaming ? streamController.current?.abort() : handleSendMessage()}
+                  className={`h-10 w-10 p-0 shrink-0 transition-all ${isStreaming ? 'bg-red-500 hover:bg-red-600' : 'gradient-primary'}`}
+                >
+                  {isStreaming
+                    ? <span className="w-3 h-3 bg-white rounded-sm block" />
+                    : <Send className="h-4 w-4" />}
                 </Button>
               </div>
             </div>

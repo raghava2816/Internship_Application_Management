@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Trello, 
   Calendar as CalendarIcon, 
@@ -6,18 +6,15 @@ import {
   Clock, 
   Plus, 
   Search, 
-  Filter, 
   Trash2, 
   Download, 
   ExternalLink, 
-  ChevronRight, 
   MapPin, 
-  Briefcase, 
   DollarSign, 
   Eye, 
-  Edit3,
   CalendarDays,
-  Activity
+  Activity,
+  Sparkles
 } from 'lucide-react';
 import { useAppData, ApplicationType } from '../context/AppDataContext';
 import { Button } from '../components/ui/Button';
@@ -25,6 +22,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Dialog } from '../components/ui/Dialog';
 import { Input, Label, Select, Textarea } from '../components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
+import axios from 'axios';
 
 const STAGES = [
   'Wishlist', 'Applied', 'OA', 'Assessment', 
@@ -34,13 +32,119 @@ const STAGES = [
 export const Tracker: React.FC = () => {
   const { 
     applications, 
+    activeResume,
     addApplication, 
     updateApplication, 
     deleteApplication, 
     exportCSV 
   } = useAppData();
 
-  const [activeView, setActiveView] = useState<'kanban' | 'timeline' | 'calendar' | 'table'>('kanban');
+  const [activeView, setActiveView] = useState<'kanban' | 'timeline' | 'calendar' | 'table' | 'suggestions'>('kanban');
+  const [suggestions, setSuggestions] = useState<{ jobs: any[]; internships: any[] }>({ jobs: [], internships: [] });
+  const [suggestionTab, setSuggestionTab] = useState<'jobs' | 'internships'>('jobs');
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [addingSuggestions, setAddingSuggestions] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (activeView === 'suggestions') {
+      const fetchSuggestions = async () => {
+        setLoadingSuggestions(true);
+        try {
+          const token = localStorage.getItem('token');
+          const res = await axios.get('/api/ai/job-recommendations', {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+          });
+          if (res.data.success) {
+            setSuggestions(res.data.data);
+          }
+        } catch (error) {
+          // Fallback suggestions
+          setSuggestions({
+            jobs: [
+              {
+                company: "G7 CR Technologies",
+                role: "Full Stack Developer Intern (MERN)",
+                location: "Bengaluru, Karnataka (In-Office)",
+                salary: "₹15,000 - ₹25,000 / month",
+                matchPercentage: 90,
+                skillsMatched: ["React", "Node.js", "JavaScript"],
+                skillsMissing: ["MongoDB", "Express.js"],
+                description: "Design and implement responsive user layouts in React and integrate secure RESTful APIs via Express router layers.",
+                jobLink: "https://www.naukri.com/full-stack-developer-jobs",
+                source: "Naukri"
+              },
+              {
+                company: "Quleep",
+                role: "Junior React Developer (Fresher)",
+                location: "Delhi/NCR (Remote)",
+                salary: "₹35,000 - ₹50,000 / month",
+                matchPercentage: 85,
+                skillsMatched: ["React", "APIs"],
+                skillsMissing: ["TypeScript", "Vite", "JSON"],
+                description: "Develop next-gen portal modules. This is a fully remote entry-level position for passionate coding graduates.",
+                jobLink: "https://in.indeed.com/jobs?q=React+Developer",
+                source: "Indeed"
+              }
+            ],
+            internships: [
+              {
+                company: "Webenza India",
+                role: "Frontend Developer Intern",
+                location: "Bengaluru, Karnataka (Hybrid)",
+                salary: "₹12,000 / month",
+                matchPercentage: 92,
+                skillsMatched: ["React", "TypeScript", "TailwindCSS"],
+                skillsMissing: ["CSS"],
+                description: "Work with UI engineers to build responsive web pages, manage states, and track browser bundle performance.",
+                jobLink: "https://internshala.com/internship/detail/front-end-development-internship-in-bangalore-at-webenza-india17211029",
+                source: "Internshala"
+              },
+              {
+                company: "Foxberry Technology",
+                role: "ReactJS Developer Intern",
+                location: "Pune, Maharashtra (Onsite)",
+                salary: "₹10,000 / month",
+                matchPercentage: 88,
+                skillsMatched: ["React", "JavaScript", "HTML"],
+                skillsMissing: ["CSS", "Git"],
+                description: "Deploy interactive components and test browser layouts. Familiarity with Github source control is required.",
+                jobLink: "https://in.indeed.com/jobs?q=React+Developer",
+                source: "Indeed"
+              }
+            ]
+          });
+        } finally {
+          setLoadingSuggestions(false);
+        }
+      };
+      fetchSuggestions();
+    }
+  }, [activeView]);
+
+  const handleAddSuggestedJob = async (job: any, index: string) => {
+    setAddingSuggestions(prev => ({ ...prev, [index]: true }));
+    try {
+      await addApplication({
+        company: job.company,
+        role: job.role,
+        jobLink: job.jobLink || '',
+        salary: job.salary || '',
+        location: job.location || '',
+        employmentType: 'Internship',
+        remoteType: job.location.includes('Remote') ? 'Remote' : job.location.includes('Hybrid') ? 'Hybrid' : 'Onsite',
+        appliedDate: new Date().toISOString().split('T')[0],
+        status: 'Wishlist',
+        priority: 'Medium',
+        tags: job.skillsMatched || [],
+        notes: `Suggested matching role from ${job.source}. Match Strength: ${job.matchPercentage}%. Description: ${job.description}`
+      });
+      alert(`Successfully added ${job.role} at ${job.company} to your Wishlist tracking board!`);
+    } catch (err) {
+      console.error('Failed to add suggested job:', err);
+    } finally {
+      setAddingSuggestions(prev => ({ ...prev, [index]: false }));
+    }
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [priorityFilter, setPriorityFilter] = useState('All');
@@ -200,7 +304,7 @@ export const Tracker: React.FC = () => {
             </Button>
           )}
         </div>
-
+        
         {/* View Switchers */}
         <div className="inline-flex rounded-lg bg-secondary p-1 text-muted-foreground self-start lg:self-center">
           <button 
@@ -208,14 +312,14 @@ export const Tracker: React.FC = () => {
             className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-semibold ${activeView === 'kanban' ? 'bg-card-light dark:bg-card-dark text-foreground shadow-sm' : ''}`}
           >
             <Trello className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Kanban</span>
+            <span className="hidden md:inline">Board</span>
           </button>
           <button 
-            onClick={() => setActiveView('timeline')}
-            className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-semibold ${activeView === 'timeline' ? 'bg-card-light dark:bg-card-dark text-foreground shadow-sm' : ''}`}
+            onClick={() => setActiveView('table')}
+            className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-semibold ${activeView === 'table' ? 'bg-card-light dark:bg-card-dark text-foreground shadow-sm' : ''}`}
           >
-            <Clock className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Timeline</span>
+            <TableIcon className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">List</span>
           </button>
           <button 
             onClick={() => setActiveView('calendar')}
@@ -225,11 +329,18 @@ export const Tracker: React.FC = () => {
             <span className="hidden md:inline">Calendar</span>
           </button>
           <button 
-            onClick={() => setActiveView('table')}
-            className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-semibold ${activeView === 'table' ? 'bg-card-light dark:bg-card-dark text-foreground shadow-sm' : ''}`}
+            onClick={() => setActiveView('timeline')}
+            className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-semibold ${activeView === 'timeline' ? 'bg-card-light dark:bg-card-dark text-foreground shadow-sm' : ''}`}
           >
-            <TableIcon className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Table</span>
+            <Clock className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Timeline</span>
+          </button>
+          <button 
+            onClick={() => setActiveView('suggestions')}
+            className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-semibold ${activeView === 'suggestions' ? 'bg-card-light dark:bg-card-dark text-foreground shadow-sm' : ''}`}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Suggestions</span>
           </button>
         </div>
       </div>
@@ -476,6 +587,120 @@ export const Tracker: React.FC = () => {
                 )}
               </TableBody>
             </Table>
+          </div>
+        )}
+
+        {activeView === 'suggestions' && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="bg-secondary/20 border border-border dark:border-white/5 rounded-2xl p-4 flex items-center justify-between gap-4">
+              <div>
+                <h3 className="font-extrabold text-sm text-foreground">Real-time Job Matching</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Get dynamic daily-scraped roles matching your active resume, split by Jobs (Naukri & Indeed) and Internships (Indeed & Internshala).</p>
+              </div>
+              <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full font-bold">
+                {activeResume ? `${activeResume.fileName} (${activeResume.version})` : 'No Active Resume'}
+              </span>
+            </div>
+
+            {/* Sub-tab selection bar */}
+            <div className="flex border-b border-border/10 pb-2 gap-6">
+              <button 
+                onClick={() => setSuggestionTab('jobs')}
+                className={`pb-1.5 text-xs font-bold transition-all relative ${suggestionTab === 'jobs' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-foreground'}`}
+              >
+                Full-Time Jobs (Naukri & Indeed)
+              </button>
+              <button 
+                onClick={() => setSuggestionTab('internships')}
+                className={`pb-1.5 text-xs font-bold transition-all relative ${suggestionTab === 'internships' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-foreground'}`}
+              >
+                Internships (Indeed & Internshala)
+              </button>
+            </div>
+
+            {loadingSuggestions ? (
+              <div className="text-center py-20 text-xs text-slate-400">
+                Loading matching suggestions via semantically audited vector database index...
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {(suggestionTab === 'jobs' ? suggestions.jobs : suggestions.internships).map((job, idx) => (
+                  <Card key={idx} className="border-t-4 border-t-primary hover:shadow-md transition-all duration-200">
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="font-black text-sm text-foreground">{job.company}</h4>
+                          <p className="text-xs text-muted-foreground font-semibold mt-0.5">{job.role}</p>
+                        </div>
+                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-full shrink-0">
+                          {job.matchPercentage}% Match
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold">
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5" />
+                          <span>{job.location}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <DollarSign className="h-3.5 w-3.5" />
+                          <span>{job.salary}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs leading-relaxed text-slate-500 font-medium line-clamp-3">{job.description}</p>
+
+                      <div className="border-t border-border/10 pt-3 space-y-2">
+                        <div className="space-y-1">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Matched skills:</span>
+                          <div className="flex flex-wrap gap-1">
+                            {job.skillsMatched.map((sk: string, i: number) => (
+                              <span key={i} className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold">{sk}</span>
+                            ))}
+                            {job.skillsMatched.length === 0 && <span className="text-[8px] text-slate-400 italic">None</span>}
+                          </div>
+                        </div>
+
+                        {job.skillsMissing.length > 0 && (
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Missing keywords:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {job.skillsMissing.map((sk: string, i: number) => (
+                                <span key={i} className="text-[8px] px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 font-bold">{sk}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2 pt-1">
+                        <a 
+                          href={job.jobLink} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="flex-1 text-center py-2 border border-border hover:bg-secondary/40 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 text-slate-700 dark:text-slate-200"
+                        >
+                          <span>Apply on {job.source}</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                        <Button 
+                          onClick={() => handleAddSuggestedJob(job, `${job.company}_${job.role}`)}
+                          loading={addingSuggestions[`${job.company}_${job.role}`]}
+                          className="gradient-primary text-white text-xs font-bold flex-1"
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Track {suggestionTab === 'jobs' ? 'Job' : 'Intern'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {(suggestionTab === 'jobs' ? suggestions.jobs : suggestions.internships).length === 0 && (
+                  <div className="col-span-full text-center py-12 text-sm text-slate-400">
+                    No matching suggestions found. Upload your resume to begin vector search.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

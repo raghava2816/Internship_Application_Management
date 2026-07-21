@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Target, Mail, Lock, User, Github } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Input, Label } from '../components/ui/Input';
 
 export const Auth: React.FC = () => {
-  const { user, token, login, register, socialLogin, loading } = useAuth();
+  const { token, login, register, socialLogin, getOAuthConfig, loading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,6 +19,24 @@ export const Auth: React.FC = () => {
   const [socialProvider, setSocialProvider] = useState<'google' | 'github'>('google');
   const [socialEmail, setSocialEmail] = useState('');
   const [socialName, setSocialName] = useState('');
+  
+  // Real OAuth configuration state
+  const [oauthConfig, setOauthConfig] = useState<{ googleClientId: string; githubClientId: string }>({
+    googleClientId: '',
+    githubClientId: ''
+  });
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const config = await getOAuthConfig();
+        setOauthConfig(config);
+      } catch (err) {
+        console.error('Failed to get OAuth config', err);
+      }
+    };
+    fetchConfig();
+  }, [getOAuthConfig]);
 
   // Redirect if already authenticated - placed after all hook declarations to satisfy Rules of Hooks
   if (token) {
@@ -50,14 +68,22 @@ export const Auth: React.FC = () => {
   };
 
   const triggerSocialLogin = (provider: 'google' | 'github') => {
-    setSocialProvider(provider);
-    if (provider === 'google') {
-      setSocialEmail('john.google@gmail.com');
-      setSocialName('John Google Dev');
-    } else {
-      setSocialEmail('jane.github@github.com');
-      setSocialName('Jane GitHub Coder');
+    // If the backend has real client IDs configured → use the real OAuth redirect
+    if (provider === 'google' && oauthConfig.googleClientId) {
+      const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback/google`);
+      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${oauthConfig.googleClientId}&redirect_uri=${redirectUri}&response_type=code&scope=email%20profile`;
+      return;
     }
+    if (provider === 'github' && oauthConfig.githubClientId) {
+      const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback/github`);
+      window.location.href = `https://github.com/login/oauth/authorize?client_id=${oauthConfig.githubClientId}&redirect_uri=${redirectUri}&scope=user:email`;
+      return;
+    }
+
+    // No real credentials configured — open the simulation dialog so reviewers can still test
+    setSocialProvider(provider);
+    setSocialEmail(provider === 'google' ? 'john.google@gmail.com' : 'jane.github@github.com');
+    setSocialName(provider === 'google' ? 'John Google Dev' : 'Jane GitHub Coder');
     setShowSocialModal(true);
   };
 
@@ -220,7 +246,15 @@ export const Auth: React.FC = () => {
                 Sign In with {socialProvider === 'google' ? 'Google' : 'GitHub'}
               </CardTitle>
               <CardDescription className="text-xs">
-                Simulated OAuth Consent Screen. Enter your details to register or login using {socialProvider === 'google' ? 'Google' : 'GitHub'}.
+                {oauthConfig.googleClientId || oauthConfig.githubClientId
+                  ? `Connecting via real ${socialProvider === 'google' ? 'Google' : 'GitHub'} OAuth. You will be redirected automatically.`
+                  : `Simulated OAuth consent screen. Enter your details to register or log in via ${socialProvider === 'google' ? 'Google' : 'GitHub'}.`
+                }
+                {!oauthConfig.googleClientId && !oauthConfig.githubClientId && (
+                  <div className="mt-2.5 p-2 rounded-lg bg-amber-500/10 text-amber-500 font-semibold border border-amber-500/15 text-[10px] text-left leading-normal">
+                    💡 To activate real OAuth, add <code>GOOGLE_CLIENT_ID</code> &amp; <code>GITHUB_CLIENT_ID</code> to your backend <code>.env</code> file.
+                  </div>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>

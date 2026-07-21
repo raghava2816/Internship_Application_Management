@@ -1,35 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ShieldCheck, 
   Activity, 
   Database, 
-  Cpu, 
-  Layers, 
   Terminal, 
   Users, 
   FileCheck,
-  Search,
-  HardDrive
+  HardDrive,
+  Wifi
 } from 'lucide-react';
 import { 
   AreaChart, 
   Area, 
-  BarChart, 
-  Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
+  ResponsiveContainer
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 import { Button } from '../components/ui/Button';
 import { Progress } from '../components/ui/Progress';
+import { usePolling } from '../hooks/usePolling';
+import { useSSE } from '../hooks/useSSE';
 import axios from 'axios';
 
 interface LogType {
@@ -48,20 +43,19 @@ export const AdminPanel: React.FC = () => {
   
   const [stats, setStats] = useState<any>(null);
   const [logs, setLogs] = useState<LogType[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [liveConnected, setLiveConnected] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const loadAdminData = async () => {
-    setLoading(true);
+  // ─── Fetch stats (used by polling) ─────────────────────────────────────────
+  const fetchStats = useCallback(async () => {
     const token = localStorage.getItem('token');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
     try {
-      const [statsRes, logsRes] = await Promise.all([
-        axios.get('/api/admin/stats', { headers }),
-        axios.get('/api/admin/logs?limit=10', { headers })
-      ]);
-      if (statsRes.data.success) setStats(statsRes.data.data);
-      if (logsRes.data.success) setLogs(logsRes.data.data);
+      const statsRes = await axios.get('/api/admin/stats', { headers });
+      if (statsRes.data.success) {
+        setStats(statsRes.data.data);
+        setLastUpdated(new Date());
+      }
     } catch {
       // Mock admin analytics fallback
       setStats({
@@ -81,6 +75,21 @@ export const AdminPanel: React.FC = () => {
           serverLoadPercent: 12
         }
       });
+      setLastUpdated(new Date());
+    }
+  }, []);
+
+  // ─── Auto-poll stats every 10s ──────────────────────────────────────────────
+  usePolling(fetchStats, { intervalMs: 10000, enabled: user?.role === 'admin', immediate: true });
+
+  // ─── Initial logs fetch ─────────────────────────────────────────────────────
+  const fetchInitialLogs = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    try {
+      const logsRes = await axios.get('/api/admin/logs?limit=10', { headers });
+      if (logsRes.data.success) setLogs(logsRes.data.data);
+    } catch {
       setLogs([
         { _id: 'l1', action: 'New registration: dev@tracker.com', category: 'auth', createdAt: new Date().toISOString() },
         { _id: 'l2', action: 'Generated cover letter for Google role', category: 'ai', createdAt: new Date(Date.now() - 40000).toISOString() },
@@ -88,16 +97,33 @@ export const AdminPanel: React.FC = () => {
         { _id: 'l4', action: 'Stripe application status moved to technical screening', category: 'application', createdAt: new Date(Date.now() - 300000).toISOString() },
         { _id: 'l5', action: 'Admin dashboard login session validated', category: 'auth', createdAt: new Date(Date.now() - 600000).toISOString() }
       ]);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, []);
 
+  // Initial logs fetch on mount
   useEffect(() => {
-    if (user?.role === 'admin') {
-      loadAdminData();
+    if (user?.role === 'admin') fetchInitialLogs();
+  }, [user, fetchInitialLogs]);
+
+  // ─── SSE Live Log Feed via useSSE hook ─────────────────────────────────────
+  useSSE('/api/admin/live-feed', {
+    enabled: user?.role === 'admin',
+    reconnectDelay: 4000,
+    onOpen: () => setLiveConnected(true),
+    onError: () => setLiveConnected(false),
+    onEvent: (event, data) => {
+      if (event === 'connected') {
+        setLiveConnected(true);
+      } else if (event === 'logs') {
+        const newLogs = data as LogType[];
+        setLogs(prev => {
+          const existingIds = new Set(prev.map(l => l._id));
+          const fresh = newLogs.filter(l => !existingIds.has(l._id));
+          return fresh.length > 0 ? [...fresh, ...prev].slice(0, 20) : prev;
+        });
+      }
     }
-  }, [user]);
+  });
 
   // Restrict access screen if not Admin
   if (user?.role !== 'admin') {
@@ -112,12 +138,6 @@ export const AdminPanel: React.FC = () => {
     );
   }
 
-  // Formatting chart variables
-  const appStatusChartData = stats ? Object.keys(stats.statusDistribution).map(key => ({
-    name: key,
-    count: stats.statusDistribution[key]
-  })) : [];
-
   const apiRequestsData = [
     { day: 'Mon', calls: 1420 },
     { day: 'Tue', calls: 1850 },
@@ -128,8 +148,6 @@ export const AdminPanel: React.FC = () => {
     { day: 'Sun', calls: 1600 }
   ];
 
-  const COLORS = ['#6366f1', '#06b6d4', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
-
   return (
     <div className="space-y-6">
       {/* Title */}
@@ -138,10 +156,24 @@ export const AdminPanel: React.FC = () => {
           <h1 className="text-3xl font-bold tracking-tight">System Controls</h1>
           <p className="text-muted-foreground text-sm">Monitor global databases, manage storage, trace server loads, and verify token usage logs.</p>
         </div>
-        <Button onClick={loadAdminData} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh Stats
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* Live connection indicator */}
+          <div className="flex items-center gap-1.5 text-xs font-semibold">
+            <span className={`w-2 h-2 rounded-full ${liveConnected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+            <span className={liveConnected ? 'text-emerald-500' : 'text-muted-foreground'}>
+              {liveConnected ? 'Live' : 'Offline'}
+            </span>
+          </div>
+          {lastUpdated && (
+            <span className="text-[10px] text-muted-foreground hidden sm:block">
+              Updated {lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
+          <Button onClick={fetchStats} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {stats && (
@@ -188,7 +220,12 @@ export const AdminPanel: React.FC = () => {
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">System DB state</span>
-                  <span className="text-xs font-extrabold block mt-2 text-accent-success uppercase">{stats.systemHealth.database}</span>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${
+                      stats.systemHealth.database === 'Connected' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                    }`} />
+                    <span className="text-xs font-extrabold uppercase">{stats.systemHealth.database}</span>
+                  </div>
                 </div>
                 <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
                   <Database className="h-6 w-6" />
@@ -263,11 +300,17 @@ export const AdminPanel: React.FC = () => {
           {/* Activity Audit logs */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-1">
+              <CardTitle className="flex items-center gap-2">
                 <Terminal className="h-5 w-5 text-primary" />
                 <span>Audit Logs Tracker</span>
+                {liveConnected && (
+                  <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-emerald-500 uppercase tracking-wider">
+                    <Wifi className="h-3 w-3" />
+                    Live
+                  </span>
+                )}
               </CardTitle>
-              <CardDescription>Live system traces.</CardDescription>
+              <CardDescription>Live system traces — updates automatically every 5 seconds.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-lg border border-border bg-card-light dark:bg-card-dark overflow-hidden dark:border-white/5">

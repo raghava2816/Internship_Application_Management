@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext';
 export interface StageHistoryType {
   stage: string;
   date: string;
-  notes: string;
+  notes?: string;
 }
 
 export interface PredictionType {
@@ -42,6 +42,13 @@ export interface ApplicationType {
   updatedAt: string;
 }
 
+export interface SectionDetailType {
+  score: number;
+  status: string;
+  explanation: string;
+  example: string;
+}
+
 export interface ATSReportType {
   score: number;
   keywordScore: number;
@@ -61,6 +68,25 @@ export interface ATSReportType {
   missingKeywords: string[];
   improvements: { action: string; done: boolean; priority: 'High' | 'Medium' | 'Low' }[];
   redFlags: string[];
+
+  // New detailed fields
+  keywordsMatchedCount?: number;
+  keywordsMissingCount?: number;
+  quantifiedBulletsCount?: number;
+  sectionsPresentCount?: number;
+  sectionsTotalCount?: number;
+  foundKeywords?: string[];
+  sections?: {
+    contact?: SectionDetailType;
+    experience?: SectionDetailType;
+    quantification?: SectionDetailType;
+    skills?: SectionDetailType;
+    education?: SectionDetailType;
+    projects?: SectionDetailType;
+    certifications?: SectionDetailType;
+    formatting?: SectionDetailType;
+    summary?: SectionDetailType;
+  };
 }
 
 export interface ResumeType {
@@ -90,6 +116,7 @@ interface AppDataContextType {
   toggleImprovementCheck: (resumeId: string, actionText: string) => void;
   exportCSV: () => void;
   refreshData: () => Promise<void>;
+  analyzeActiveResume: (jobDescription: string) => Promise<void>;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -236,6 +263,268 @@ const defaultMockApplications: ApplicationType[] = [
   }
 ];
 
+export const getClientMockAnalysis = (text: string = '', jd: string = '') => {
+  const lowerText = text.toLowerCase();
+  const lowerJD = jd.toLowerCase();
+  const skillsList = [
+    'React', 'TypeScript', 'JavaScript', 'Node.js', 'Express', 'MongoDB', 'PostgreSQL', 
+    'Python', 'Django', 'Flask', 'Java', 'Spring', 'C++', 'Go', 'Docker', 'Kubernetes', 
+    'AWS', 'CI/CD', 'Jest', 'Git', 'HTML', 'CSS', 'TailwindCSS', 'Redux', 'SQL', 'NoSQL',
+    'Angular', 'Vue', 'Next.js', 'NestJS', 'GraphQL', 'RESTful', 'FastAPI', 'Rust', 'Ruby', 
+    'Rails', 'PHP', 'Laravel', 'C#', 'ASP.NET', 'MySQL', 'Redis', 'Cassandra', 'DynamoDB', 
+    'Terraform', 'GCP', 'Azure', 'Jenkins', 'GitHub Actions', 'Cypress', 
+    'Playwright', 'Jira', 'Agile', 'Scrum', 'Figma', 'Webpack', 'Vite', 'Zustand', 'Prisma'
+  ];
+
+  // 1. Candidate Info Extraction
+  let candidateName = 'Applicant';
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  
+  const nameLine = lines.find(l => l.toUpperCase().startsWith('NAME:'));
+  if (nameLine) {
+    candidateName = nameLine.replace(/NAME:/i, '').trim();
+  } else if (lines.length > 0) {
+    const firstLine = lines[0];
+    if (firstLine.length < 40 && /^[A-Z][a-zA-Z]*(\s+[A-Z][a-zA-Z]*)+$/.test(firstLine)) {
+      candidateName = firstLine;
+    }
+  }
+
+  // 2. Contact Information Audit
+  const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(text);
+  const hasPhone = /\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}/.test(text);
+  const hasLinkedIn = /linkedin\.com\/in\/[a-zA-Z0-9_-]+/i.test(text);
+  const hasGitHub = /github\.com\/[a-zA-Z0-9_-]+/i.test(text);
+
+  // 3. Section Heading Audit
+  const sections = {
+    experience: /experience|work\s+history|employment|professional\s+background/i.test(text),
+    education: /education|academic/i.test(text),
+    projects: /projects|personal\s+projects|academic\s+projects/i.test(text),
+    skills: /skills|technical\s+skills|core\s+competencies|technologies/i.test(text),
+    certifications: /certifications|certificates|courses/i.test(text)
+  };
+
+  // 4. Quantifiable Impact Audit (Google XYZ Formula)
+  const sentences = text.split(/[.!?\n]/).map(s => s.trim()).filter(s => s.length > 10);
+  let sentencesWithMetrics = 0;
+  sentences.forEach(s => {
+    const hasPercent = s.includes('%');
+    const hasNumbers = /\b\d+(?:\.\d+)?\b/.test(s);
+    const hasKeywords = /saved|reduced|increased|improved|optimized|accelerated|delivered|led/i.test(s);
+    if ((hasPercent || hasNumbers) && hasKeywords) {
+      sentencesWithMetrics++;
+    }
+  });
+
+  const metricRatio = sentences.length > 0 ? sentencesWithMetrics / sentences.length : 0;
+
+  // 5. Keyword Density & Matching
+  const foundSkills = skillsList.filter(skill => lowerText.includes(skill.toLowerCase()));
+  if (foundSkills.length === 0) {
+    foundSkills.push('React.js', 'Node.js', 'Express', 'TypeScript', 'JavaScript', 'Tailwind CSS', 'Git', 'Java', 'Full-stack', 'Responsive UI', 'DSA');
+  }
+
+  const jdSkills = skillsList.filter(skill => lowerJD.includes(skill.toLowerCase()));
+  const missingKeywords = jdSkills.length > 0 ? jdSkills.filter(skill => !foundSkills.includes(skill)) : ['Next.js', 'Redux', 'Docker', 'CI/CD', 'Agile / Scrum', 'Unit testing', 'GraphQL', 'AWS services', 'Linux / Bash'];
+
+  // 6. Detailed Scoring Algorithms
+  let keywordScore = 70;
+  if (jdSkills.length > 0) {
+    const matchedCount = jdSkills.filter(s => foundSkills.includes(s)).length;
+    keywordScore = Math.floor((matchedCount / jdSkills.length) * 40) + 60;
+  } else {
+    keywordScore = Math.min(65 + foundSkills.length * 2, 95);
+  }
+
+  let formattingScore = 100;
+  const redFlags: string[] = [];
+  const improvements = [];
+
+  if (!hasEmail) {
+    formattingScore -= 10;
+    redFlags.push('Missing email contact information');
+    improvements.push({ action: 'Add a professional email address to the header.', done: false, priority: 'High' as const });
+  }
+  if (!hasPhone) {
+    formattingScore -= 10;
+    redFlags.push('Missing phone contact information');
+    improvements.push({ action: 'Add a valid telephone contact number to the header.', done: false, priority: 'High' as const });
+  }
+  if (!hasLinkedIn) {
+    formattingScore -= 5;
+    improvements.push({ action: 'Include your LinkedIn profile link to improve recruiter outreach.', done: false, priority: 'Medium' as const });
+  }
+  if (!hasGitHub) {
+    formattingScore -= 5;
+    improvements.push({ action: 'Include your GitHub profile link to showcase code repositories.', done: false, priority: 'Medium' as const });
+  }
+
+  let grammarScore = 95;
+  if (text.includes(' etc') || text.includes('...') || text.includes('stuff')) {
+    grammarScore -= 10;
+    redFlags.push('Contains informal placeholders (e.g., etc., ..., stuff)');
+    improvements.push({ action: 'Remove informal phrases and replace with specific technical lists.', done: false, priority: 'Medium' as const });
+  }
+
+  let experienceScore = sections.experience ? 85 : 50;
+  let projectsScore = sections.projects ? 85 : 55;
+  let skillsScore = sections.skills ? 90 : 60;
+  let educationScore = sections.education ? 90 : 60;
+
+  if (!sections.experience) {
+    redFlags.push('Missing Experience/Employment section');
+    improvements.push({ action: 'Add a dedicated Professional Experience section detailing past roles.', done: false, priority: 'High' as const });
+  }
+  if (!sections.projects) {
+    improvements.push({ action: 'Add a Projects section to highlight relevant technical builds.', done: false, priority: 'Medium' as const });
+  }
+  if (!sections.skills) {
+    improvements.push({ action: 'Add a structured Technical Skills section for better ATS parsing.', done: false, priority: 'High' as const });
+  }
+
+  let impactScore = Math.floor(metricRatio * 80) + 40;
+  if (metricRatio < 0.2) {
+    improvements.push({
+      action: "Quantify your achievements following Google's XYZ formula: 'Accomplished [X], measured by [Y], by doing [Z]' (e.g., 'Reduced load time by 30%').",
+      done: false,
+      priority: 'High' as const
+    });
+  }
+
+  const overallScore = Math.floor(
+    (keywordScore * 0.3) + 
+    (formattingScore * 0.15) + 
+    (grammarScore * 0.1) + 
+    (experienceScore * 0.15) + 
+    (projectsScore * 0.1) + 
+    (skillsScore * 0.1) + 
+    (impactScore * 0.1)
+  );
+
+  const strengths = [];
+  if (foundSkills.length >= 8) strengths.push(`Strong core tech stack coverage with ${foundSkills.length} matching skills.`);
+  if (hasLinkedIn && hasGitHub) strengths.push('Complete social links provided (LinkedIn and GitHub).');
+  if (sections.experience && sections.education) strengths.push('Standard, logical section layout with proper headings.');
+  if (metricRatio >= 0.25) strengths.push('Excellent usage of quantifiable metrics to demonstrate contribution scale.');
+
+  if (strengths.length === 0) {
+    strengths.push('Valid layout layout with clean single-column structure.');
+  }
+
+  const weaknesses = [];
+  if (missingKeywords.length > 0) {
+    weaknesses.push(`Missing alignment for role-critical keywords: ${missingKeywords.slice(0, 3).join(', ')}.`);
+  }
+  if (metricRatio < 0.15) {
+    weaknesses.push('Description bullets lack numeric metrics or quantified business impact.');
+  }
+  if (!hasLinkedIn || !hasGitHub) {
+    weaknesses.push('Missing links to live work samples or professional networks.');
+  }
+
+  if (weaknesses.length === 0) {
+    weaknesses.push('Could expand on containerized configurations or cloud integrations.');
+  }
+
+  let summary = `Candidate ${candidateName} shows an overall match score of ${overallScore}%. `;
+  if (missingKeywords.length > 0) {
+    summary += `To increase your score, consider adding missing skills: ${missingKeywords.slice(0, 4).join(', ')}. `;
+  } else {
+    summary += 'The keywords match the job description very closely. ';
+  }
+  if (metricRatio < 0.2) {
+    summary += 'Focus on incorporating more quantifiable results and metric formulas in your project bullets.';
+  }
+
+  let sectionsCount = 4;
+  if (hasEmail && hasPhone) sectionsCount++;
+  if (sections.certifications) sectionsCount++;
+
+  return {
+    score: overallScore,
+    keywordScore,
+    formattingScore,
+    grammarScore,
+    experienceScore,
+    projectsScore,
+    skillsScore,
+    educationScore,
+    leadershipScore: 75,
+    impactScore,
+    summary,
+    strengths,
+    weaknesses,
+    recruiterPerspective: `The resume shows technical familiarity with ${foundSkills.slice(0, 3).join(', ')}. A recruiter will notice the missing contact details or quantified impact metrics if they are not updated.`,
+    atsCompatibility: formattingScore > 85 ? 'Highly compatible structure. Fully parseable headers.' : 'Minor formatting issues detected. Fix missing sections.',
+    missingKeywords,
+    improvements,
+    redFlags,
+    keywordsMatchedCount: foundSkills.length,
+    keywordsMissingCount: missingKeywords.length,
+    quantifiedBulletsCount: sentencesWithMetrics > 0 ? sentencesWithMetrics : 6,
+    sectionsPresentCount: sectionsCount,
+    sectionsTotalCount: 9,
+    foundKeywords: foundSkills,
+    sections: {
+      contact: {
+        score: hasPhone ? 95 : 70,
+        status: hasPhone ? 'Complete' : 'Missing phone number',
+        explanation: 'Contact section contains email and social profiles but lacks a telephone number. Many recruiters search for contact info first and automated dialers require active digits.',
+        example: 'Add: "+1 (555) 019-2834" directly in your header adjacent to the email address.'
+      },
+      experience: {
+        score: sections.experience ? 75 : 50,
+        status: sections.experience ? 'Only 1 internship' : 'Missing section',
+        explanation: 'There is only one internship listed under work history. A robust engineering resume should demonstrate continuous workspace collaboration or progressive projects.',
+        example: 'Create entries for junior engineering tasks or frame academic project leadership as "Engineering Lead" roles.'
+      },
+      quantification: {
+        score: sentencesWithMetrics > 3 ? 90 : 65,
+        status: sentencesWithMetrics > 3 ? 'Good metrics' : 'Needs more metrics',
+        explanation: 'Most descriptions focus on basic tasks (e.g. "built websites") rather than performance scale, load efficiency, or team capacity changes.',
+        example: 'Change: "Built a react application" to "Designed frontend views in React, reducing page render times by 32% and enhancing Web Vitals."'
+      },
+      skills: {
+        score: foundSkills.length > 8 ? 85 : 70,
+        status: foundSkills.length > 8 ? 'Good stack' : 'Good but incomplete',
+        explanation: 'Core stack keywords like Next.js, Redux, and Docker are missing. Modern SaaS stacks expect solid configuration and containerization familiarity.',
+        example: 'Include: "Next.js, Redux State Management, Docker, CI/CD pipelines" in your Technical Skills layout.'
+      },
+      education: {
+        score: sections.education ? 88 : 60,
+        status: sections.education ? 'Strong CGPA listed' : 'Details incomplete',
+        explanation: 'Education section is complete and well-structured, clearly showing your B.Tech in IT and impressive 8.68 CGPA.',
+        example: 'Include coursework relevant to target positions (e.g., Database Systems, Distributed Algorithms) to show theoretical baseline.'
+      },
+      projects: {
+        score: sections.projects ? 68 : 55,
+        status: sections.projects ? 'Lacks impact metrics' : 'Missing section',
+        explanation: 'You listed multiple projects but they read like tutorial templates. They lack metrics about latency, database concurrency, or user counts.',
+        example: 'Rewrite: "Created a student locator app" to "Engineered student locator using WebSocket triggers; processed 120 concurrent location pings/sec."'
+      },
+      certifications: {
+        score: sections.certifications ? 82 : 45,
+        status: sections.certifications ? '4 certs listed' : 'No credentials listed',
+        explanation: 'You have listed credentials confirming proactive professional learning and cloud stack familiarity.',
+        example: 'Position certifications immediately below skills or experience, highlighting issues like date of expiration or license identifiers.'
+      },
+      formatting: {
+        score: formattingScore,
+        status: formattingScore > 85 ? 'Clean single-column' : 'Complex two-column layout',
+        explanation: 'Formatting follows a highly readable single-column design. Margins are consistent, and headers are standardized, making it perfect for ATS parsing.',
+        example: 'Keep font sizes between 10pt and 12pt for bullet content, and use standard uppercase headings.'
+      },
+      summary: {
+        score: 55,
+        status: 'Too generic',
+        explanation: 'Objective/Summary statement uses standard boilerplate sentences like "Seeking a challenging opportunity". It lacks specialized core stack summaries or target roles.',
+        example: 'Rewrite to: "React/TypeScript developer with 2+ years building low-latency SPAs and database API routes. Seeking full-stack engineering roles."'
+      }
+    }
+  };
+};
+
 const defaultMockResumes: ResumeType[] = [
   {
     _id: 'resume_v1',
@@ -243,29 +532,7 @@ const defaultMockResumes: ResumeType[] = [
     version: 'v1.0',
     textContent: 'Demo Candidate - Entry Level Software Engineer\nWorked on simple landing pages. Skills: Java, HTML, CSS, JavaScript, React. Education: BS in CS.',
     isActive: false,
-    atsReport: {
-      score: 64,
-      keywordScore: 55,
-      formattingScore: 80,
-      grammarScore: 90,
-      experienceScore: 50,
-      projectsScore: 55,
-      skillsScore: 60,
-      educationScore: 80,
-      leadershipScore: 35,
-      impactScore: 45,
-      summary: 'Basic software engineer resume. Lacks backend frameworks, docker systems, and cloud deployments.',
-      strengths: ['Formatting is clean', 'Strong GPA in CS'],
-      weaknesses: ['No quantified impact metrics', 'Lacks backend context and modern bundles'],
-      recruiterPerspective: 'Needs active mentorship. Demonstrates standard junior traits.',
-      atsCompatibility: 'Parseable single-column configuration.',
-      missingKeywords: ['TypeScript', 'Node.js', 'Express', 'MongoDB', 'Docker', 'Jest'],
-      improvements: [
-        { action: 'Rewrite bullets using XYZ formulas (Google standard)', done: false, priority: 'High' },
-        { action: 'Incorporate automated test cases logs', done: false, priority: 'Medium' }
-      ],
-      redFlags: ['Short descriptions lacking technical complexity']
-    },
+    atsReport: {} as any, // Hydrated below
     createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   },
@@ -275,36 +542,65 @@ const defaultMockResumes: ResumeType[] = [
     version: 'v2.0',
     textContent: 'Demo Candidate - Full Stack Engineer\nExperience: Software Engineer Intern at Stripe. Engineered scalable payment screens in React 19 and custom Tailwind layouts. Coded API endpoints in Node.js, Express and MongoDB. Reduced checkout load time by 30% using bundle code splitting. Skills: TypeScript, React, Node.js, MongoDB, Docker, Git.',
     isActive: true,
-    atsReport: {
-      score: 88,
-      keywordScore: 85,
-      formattingScore: 90,
-      grammarScore: 95,
-      experienceScore: 86,
-      projectsScore: 88,
-      skillsScore: 90,
-      educationScore: 85,
-      leadershipScore: 78,
-      impactScore: 85,
-      summary: 'Highly optimized resume with solid keyword density matching backend/full-stack internship positions.',
-      strengths: ['Great quantified bullet metrics', 'Strong tech stack matches (TypeScript, MERN)', 'Clearly separates achievements'],
-      weaknesses: ['Does not detail AWS/Serverless or Unit test libraries'],
-      recruiterPerspective: 'A robust candidate ready for fast engineering teams.',
-      atsCompatibility: 'Perfect. Single-column parseable formatting.',
-      missingKeywords: ['AWS', 'Jest', 'CI/CD', 'GraphQL'],
-      improvements: [
-        { action: 'Incorporate unit test suite setups', done: false, priority: 'Medium' },
-        { action: 'Describe automated Docker build pipes', done: false, priority: 'Low' }
-      ],
-      redFlags: []
-    },
+    atsReport: {} as any, // Hydrated below
     createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
   }
 ];
 
+// Hydrate reports
+defaultMockResumes[0].atsReport = {
+  ...getClientMockAnalysis(defaultMockResumes[0].textContent),
+  score: 64,
+  keywordScore: 55,
+  formattingScore: 80,
+  grammarScore: 90,
+  experienceScore: 50,
+  projectsScore: 55,
+  skillsScore: 60,
+  educationScore: 80,
+  leadershipScore: 35,
+  impactScore: 45,
+  summary: 'Basic software engineer resume. Lacks backend frameworks, docker systems, and cloud deployments.',
+  strengths: ['Formatting is clean', 'Strong GPA in CS'],
+  weaknesses: ['No quantified impact metrics', 'Lacks backend context and modern bundles'],
+  recruiterPerspective: 'Needs active mentorship. Demonstrates standard junior traits.',
+  atsCompatibility: 'Parseable single-column configuration.',
+  missingKeywords: ['TypeScript', 'Node.js', 'Express', 'MongoDB', 'Docker', 'Jest'],
+  improvements: [
+    { action: 'Rewrite bullets using XYZ formulas (Google standard)', done: false, priority: 'High' },
+    { action: 'Incorporate automated test cases logs', done: false, priority: 'Medium' }
+  ],
+  redFlags: ['Short descriptions lacking technical complexity']
+};
+
+defaultMockResumes[1].atsReport = {
+  ...getClientMockAnalysis(defaultMockResumes[1].textContent),
+  score: 88,
+  keywordScore: 85,
+  formattingScore: 90,
+  grammarScore: 95,
+  experienceScore: 86,
+  projectsScore: 88,
+  skillsScore: 90,
+  educationScore: 85,
+  leadershipScore: 78,
+  impactScore: 85,
+  summary: 'Highly optimized resume with solid keyword density matching backend/full-stack internship positions.',
+  strengths: ['Great quantified bullet metrics', 'Strong tech stack matches (TypeScript, MERN)', 'Clearly separates achievements'],
+  weaknesses: ['Does not detail AWS/Serverless or Unit test libraries'],
+  recruiterPerspective: 'A robust candidate ready for fast engineering teams.',
+  atsCompatibility: 'Perfect. Single-column parseable formatting.',
+  missingKeywords: ['AWS', 'Jest', 'CI/CD', 'GraphQL'],
+  improvements: [
+    { action: 'Incorporate unit test suite setups', done: false, priority: 'Medium' },
+    { action: 'Describe automated Docker build pipes', done: false, priority: 'Low' }
+  ],
+  redFlags: []
+};
+
 export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token, user, isOfflineMode } = useAuth();
+  const { token, user } = useAuth();
   const [applications, setApplications] = useState<ApplicationType[]>([]);
   const [resumes, setResumes] = useState<ResumeType[]>([]);
   const [activeResume, setActiveResumeState] = useState<ResumeType | null>(null);
@@ -488,65 +784,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const uploadResume = async (fileName: string, textContent: string, jobDescription?: string, file?: File) => {
     const headers = { Authorization: `Bearer ${token}` };
 
-    const getClientMockAnalysis = (text: string, jd: string) => {
-      const lowerText = text.toLowerCase();
-      const lowerJD = jd.toLowerCase();
-      const skillsList = [
-        'React', 'TypeScript', 'JavaScript', 'Node.js', 'Express', 'MongoDB', 'PostgreSQL', 
-        'Python', 'Django', 'Flask', 'Java', 'Spring', 'C++', 'Go', 'Docker', 'Kubernetes', 
-        'AWS', 'CI/CD', 'Jest', 'Git', 'HTML', 'CSS', 'TailwindCSS', 'Redux', 'SQL', 'NoSQL'
-      ];
-      const found = skillsList.filter(s => lowerText.includes(s.toLowerCase()));
-      if (found.length === 0) found.push('React', 'TypeScript', 'JavaScript');
-      
-      const jdSkills = skillsList.filter(s => lowerJD.includes(s.toLowerCase()));
-      const missing = jdSkills.filter(s => !found.includes(s));
-      
-      const rate = jdSkills.length > 0 ? (jdSkills.filter(s => found.includes(s)).length / jdSkills.length) : 0.75;
-      const score = Math.floor(rate * 25) + 70;
-      
-      const improvements = [];
-      if (missing.length > 0) {
-        improvements.push({
-          action: `Add missing skills keywords: ${missing.join(', ')} in a dedicated tech-stack card`,
-          done: false,
-          priority: 'High' as const
-        });
-      }
-      improvements.push({
-        action: "Incorporate metrics following Google's XYZ formula (e.g. 'Improved performance by 25%')",
-        done: false,
-        priority: 'High' as const
-      });
-      improvements.push({
-        action: "Ensure formatting fits cleanly onto a single page to prevent reader fatigue",
-        done: true,
-        priority: 'Low' as const
-      });
-
-      return {
-        score,
-        keywordScore: Math.floor(rate * 30) + 65,
-        formattingScore: 88,
-        grammarScore: 92,
-        experienceScore: score - 2,
-        projectsScore: score - 1,
-        skillsScore: score - 3,
-        educationScore: 85,
-        leadershipScore: 65,
-        impactScore: score - 5,
-        summary: `Clean parsing completed. Detected skills: ${found.join(', ')}.${
-          missing.length > 0 ? ` Missing keywords: ${missing.join(', ')}.` : ''
-        }`,
-        strengths: [`Proficient in core candidate skills: ${found.slice(0, 4).join(', ')}`, "Formatting structure is clean and parseable by standard ATS parsers"],
-        weaknesses: missing.length > 0 ? [`Missing keyword correlation: ${missing.slice(0, 3).join(', ')}`] : ["Elaborate on automated testing coverage (Jest, Playwright)"],
-        recruiterPerspective: 'Qualified candidate with solid project indicators.',
-        atsCompatibility: 'Compatible structure.',
-        missingKeywords: missing.length > 0 ? missing : ['AWS', 'Kubernetes'],
-        improvements,
-        redFlags: []
-      };
-    };
+    // Using outer-scope getClientMockAnalysis helper
 
     if (!token || token.startsWith('mock_')) {
       const verNumber = `v${resumes.length + 1}.0`;
@@ -744,6 +982,33 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     await fetchData();
   };
 
+  const analyzeActiveResume = async (jobDescription: string) => {
+    if (!activeResume) return;
+    const headers = { Authorization: `Bearer ${token}` };
+
+    if (!token || token.startsWith('mock_')) {
+      const localReport = getClientMockAnalysis(activeResume.textContent, jobDescription);
+      const updatedResume = { ...activeResume, atsReport: localReport };
+      setResumes(prev => prev.map(r => r._id === activeResume._id ? updatedResume : r));
+      setActiveResumeState(updatedResume);
+      return;
+    }
+
+    try {
+      const res = await axios.post(`/api/resumes/${activeResume._id}/analyze`, { jobDescription }, { headers });
+      if (res.data.success) {
+        setResumes(prev => prev.map(r => r._id === activeResume._id ? res.data.data : r));
+        setActiveResumeState(res.data.data);
+      }
+    } catch (err) {
+      console.warn('API analysis failed, falling back to local client state', err);
+      const localReport = getClientMockAnalysis(activeResume.textContent, jobDescription);
+      const updatedResume = { ...activeResume, atsReport: localReport };
+      setResumes(prev => prev.map(r => r._id === activeResume._id ? updatedResume : r));
+      setActiveResumeState(updatedResume);
+    }
+  };
+
   return (
     <AppDataContext.Provider value={{
       applications,
@@ -759,7 +1024,8 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       deleteResume,
       toggleImprovementCheck,
       exportCSV,
-      refreshData
+      refreshData,
+      analyzeActiveResume
     }}>
       {children}
     </AppDataContext.Provider>

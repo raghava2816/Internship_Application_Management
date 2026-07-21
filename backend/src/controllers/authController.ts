@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
 import Log from '../models/Log';
@@ -245,4 +245,174 @@ export const socialLogin = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ success: false, message: 'Server error during social login.' });
   }
 };
+
+export const getOAuthConfig = async (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+      githubClientId: process.env.GITHUB_CLIENT_ID || ''
+    }
+  });
+};
+
+export const oauthCallback = async (req: Request, res: Response) => {
+  const { provider, code, redirectUri } = req.body;
+  if (!provider || !code) {
+    return res.status(400).json({ success: false, message: 'Provider and authorization code are required.' });
+  }
+
+  try {
+    let email = '';
+    let name = '';
+    let id = '';
+    let avatarUrl = '';
+
+    if (provider === 'google') {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      
+      if (!clientId || !clientSecret) {
+        return res.status(500).json({ success: false, message: 'Google OAuth is not configured on the server.' });
+      }
+
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code'
+        }).toString()
+      });
+
+      const tokenData = await tokenRes.json() as any;
+      if (tokenData.error) {
+        return res.status(400).json({ success: false, message: `Google OAuth Error: ${tokenData.error_description || tokenData.error}` });
+      }
+
+      const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` }
+      });
+      const userData = await userRes.json() as any;
+
+      email = userData.email;
+      name = userData.name || userData.given_name || 'Google User';
+      id = userData.id;
+      avatarUrl = userData.picture || '';
+
+    } else if (provider === 'github') {
+      const clientId = process.env.GITHUB_CLIENT_ID;
+      const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
+        return res.status(500).json({ success: false, message: 'GitHub OAuth is not configured on the server.' });
+      }
+
+      const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          redirect_uri: redirectUri
+        })
+      });
+
+      const tokenData = await tokenRes.json() as any;
+      if (tokenData.error) {
+        return res.status(400).json({ success: false, message: `GitHub OAuth Error: ${tokenData.error_description || tokenData.error}` });
+      }
+
+      const userRes = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          'User-Agent': 'Internship-Tracker-Pro-Backend'
+        }
+      });
+      const userData = await userRes.json() as any;
+
+      name = userData.name || userData.login || 'GitHub User';
+      id = String(userData.id);
+      avatarUrl = userData.avatar_url || '';
+
+      email = userData.email;
+      if (!email) {
+        const emailsRes = await fetch('https://api.github.com/user/emails', {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+            'User-Agent': 'Internship-Tracker-Pro-Backend'
+          }
+        });
+        const emailsList = await emailsRes.json() as any[];
+        if (Array.isArray(emailsList) && emailsList.length > 0) {
+          const primaryEmailObj = emailsList.find(e => e.primary && e.verified) || emailsList[0];
+          email = primaryEmailObj.email;
+        }
+      }
+    } else {
+      return res.status(400).json({ success: false, message: 'Unsupported OAuth provider.' });
+    }
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: `Could not retrieve verified email from ${provider}.` });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (user) {
+      if (provider === 'google' && !user.googleId) {
+        user.googleId = id;
+      } else if (provider === 'github' && !user.githubId) {
+        user.githubId = id;
+      }
+      if (avatarUrl && !user.avatarUrl) {
+        user.avatarUrl = avatarUrl;
+      }
+      await user.save();
+    } else {
+      const newUserData: any = {
+        name,
+        email,
+        role: 'user',
+        avatarUrl,
+        skills: []
+      };
+      if (provider === 'google') {
+        newUserData.googleId = id;
+      } else if (provider === 'github') {
+        newUserData.githubId = id;
+      }
+      user = await User.create(newUserData);
+      await Log.create({ ownerId: user._id, action: `Registered new account via OAuth (${provider})`, category: 'auth' });
+    }
+
+    const token = signToken(user._id.toString(), user.role);
+    await Log.create({ ownerId: user._id, action: `Logged in via OAuth (${provider})`, category: 'auth' });
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        skills: user.skills,
+        settings: user.settings,
+        avatarUrl: user.avatarUrl
+      }
+    });
+  } catch (error: any) {
+    console.error(`OAuth callback error for ${provider}:`, error);
+    res.status(500).json({ success: false, message: 'Server error during OAuth validation.' });
+  }
+};
+
 

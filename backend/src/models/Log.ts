@@ -6,7 +6,8 @@ const LogSchema = new Schema({
   category: { type: String, default: 'general' }, // 'auth', 'application', 'resume', 'ai', 'admin'
   ipAddress: { type: String, default: '' },
   userAgent: { type: String, default: '' },
-  details: { type: String, default: '' }
+  details: { type: String, default: '' },
+  tokensUsed: { type: Number, default: 0 }  // Estimated AI tokens used (chars / 4)
 }, {
   timestamps: { createdAt: true, updatedAt: false } // only needs createdAt
 });

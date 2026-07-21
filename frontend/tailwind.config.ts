@@ -10,26 +10,26 @@ export default {
     extend: {
       colors: {
         background: {
-          light: '#f8fafc',
-          dark: '#030712'
+          light: '#F9FAFB',
+          dark: '#111827'
         },
         card: {
-          light: '#ffffff',
-          dark: '#0b0f19'
+          light: '#FFFFFF',
+          dark: '#1F2937'
         },
         primary: {
-          DEFAULT: '#6366f1', // Indigo
-          hover: '#4f46e5'
+          DEFAULT: '#10B981', // Emerald
+          hover: '#059669'
         },
         secondary: {
-          DEFAULT: '#06b6d4', // Cyan
-          hover: '#0891b2'
+          DEFAULT: '#6EE7B7', // Mint
+          hover: '#34D399'
         },
         accent: {
-          DEFAULT: '#ec4899', // Pink
-          success: '#10b981', // Emerald
-          warning: '#f59e0b', // Amber
-          danger: '#ef4444' // Red
+          DEFAULT: '#22D3EE', // Cyan
+          success: '#10B981', // Emerald
+          warning: '#F59E0B', // Amber
+          danger: '#EF4444' // Red
         }
       },
       fontFamily: {

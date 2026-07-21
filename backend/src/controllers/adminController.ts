@@ -12,20 +12,56 @@ export const getSystemStats = async (req: AuthRequest, res: Response) => {
     let totalApplications = 4;
     let statusCounts: any = { Wishlist: 1, Applied: 0, OA: 1, 'Technical Round': 1, Offer: 0, Rejected: 1 };
     let logsCount = 24;
+    let aiTokensUsed = 0;
+    let resumesSizeMB = 0;
 
     try {
       totalUsers = await User.countDocuments();
       totalApplications = await Application.countDocuments();
       logsCount = await Log.countDocuments();
 
+      // ── Real application status distribution ────────────────────────────────
       const agg = await Application.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 } } }
       ]);
       agg.forEach(item => {
         statusCounts[item._id] = item.count;
       });
+
+      // ── Real AI token total: sum tokensUsed from all AI category logs ───────
+      const tokenAgg = await Log.aggregate([
+        { $match: { category: 'ai' } },
+        { $group: { _id: null, total: { $sum: '$tokensUsed' } } }
+      ]);
+      aiTokensUsed = tokenAgg[0]?.total ?? 0;
+
+      // ── Real storage: sum textContent byte lengths from all resumes ──────────
+      const storageAgg = await Resume.aggregate([
+        {
+          $project: {
+            textBytes: { $strLenBytes: { $ifNull: ['$textContent', ''] } },
+            fileUrlBytes: { $strLenBytes: { $ifNull: ['$fileUrl', ''] } }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalTextBytes: { $sum: '$textBytes' },
+            totalFileBytes: { $sum: '$fileUrlBytes' }
+          }
+        }
+      ]);
+      if (storageAgg.length > 0) {
+        // textContent storage (actual resume text in DB)
+        resumesSizeMB = parseFloat(
+          ((storageAgg[0].totalTextBytes + storageAgg[0].totalFileBytes) / (1024 * 1024)).toFixed(2)
+        );
+      }
     } catch {
       console.warn('⚠️ Mongoose DB unavailable for agg stats. Returning mock counts.');
+      // Keep the mock defaults set at the top for offline mode
+      aiTokensUsed = 14820;
+      resumesSizeMB = 1.45;
     }
 
     res.json({
@@ -35,15 +71,19 @@ export const getSystemStats = async (req: AuthRequest, res: Response) => {
         applications: totalApplications,
         logs: logsCount,
         statusDistribution: statusCounts,
-        aiTokensUsed: Math.floor(Math.random() * 5000) + 12000,
+        aiTokensUsed,
         storageAnalytics: {
-          resumesSizeMB: 1.45,
-          certificatesSizeMB: 4.22,
+          resumesSizeMB,
+          certificatesSizeMB: 0,      // Not stored on server — portfolio certs are localStorage
           totalAllocatedMB: 100
         },
         systemHealth: {
           database: mongoose.connection.readyState === 1 ? 'Connected' : 'Mock Mode (Degraded)',
-          openai: process.env.OPENAI_API_KEY ? 'Active' : 'Backup (Offline Simulated Mode)',
+          openai: process.env.GROQ_API_KEY
+            ? 'Active (Groq)'
+            : process.env.OPENAI_API_KEY
+            ? 'Active (OpenAI)'
+            : 'Backup (Offline Simulated Mode)',
           serverLoadPercent: Math.floor(Math.random() * 15) + 5
         }
       }
@@ -59,7 +99,7 @@ export const getSystemLogs = async (req: AuthRequest, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 20;
     const skip = (page - 1) * limit;
 
-    let logs = [];
+    let logs: any[] = [];
     let total = 20;
 
     try {

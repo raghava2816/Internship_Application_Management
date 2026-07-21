@@ -2,9 +2,38 @@ import { Response } from 'express';
 import Resume from '../models/Resume';
 import Log from '../models/Log';
 import { AuthRequest } from '../middleware/authMiddleware';
-import { analyzeResume } from '../services/aiService';
-const pdf = require('pdf-parse');
+import { analyzeResume, getMockATSAnalysis } from '../services/aiService';
 import mammoth from 'mammoth';
+
+// ─── Reliable single-path PDF extractor ────────────────────────────────────
+const extractPdfText = async (buffer: Buffer): Promise<string> => {
+  try {
+    // pdf-parse exports its function directly via module.exports
+    // We resolve both the ESM-interop and plain CJS form in one shot.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const pdfParse: (buf: Buffer) => Promise<{ text: string }> =
+      require('pdf-parse')?.default ?? require('pdf-parse');
+
+    if (typeof pdfParse !== 'function') {
+      throw new Error('pdf-parse module did not export a callable function');
+    }
+
+    const result = await pdfParse(buffer);
+    const text = (result?.text ?? '').trim();
+
+    if (text.length < 30) {
+      throw new Error(
+        'Extracted PDF text is too short — the file may be image-only or encrypted. ' +
+        'Please paste your resume text manually.'
+      );
+    }
+    return text;
+  } catch (err: any) {
+    console.error('PDF text extraction error:', err?.message ?? err);
+    throw err;
+  }
+};
+
 
 // Mock Resume Fallback Store
 export const mockResumes: any[] = [
@@ -16,29 +45,7 @@ export const mockResumes: any[] = [
     version: 'v1.0',
     textContent: 'Demo User - Software Engineer\nExperience: Freelance React Developer. Built landing pages. Used JavaScript, CSS, HTML.\nEducation: CS Student at State University.\nSkills: Java, HTML, CSS, JavaScript, React.',
     isActive: false,
-    atsReport: {
-      score: 68,
-      keywordScore: 60,
-      formattingScore: 85,
-      grammarScore: 90,
-      experienceScore: 55,
-      projectsScore: 60,
-      skillsScore: 65,
-      educationScore: 85,
-      leadershipScore: 40,
-      impactScore: 50,
-      summary: 'The resume lists basic skills, but is missing technical details. Formatting is clean, but doesn\'t represent metrics or direct projects outcomes.',
-      strengths: ['Clean single-column page format', 'Grammatically correct and structured'],
-      weaknesses: ['Missing enterprise keywords like Node.js, WebSockets, or Cloud Providers', 'No quantified metrics (XYZ Formula)'],
-      recruiterPerspective: 'Appears as an entry-level candidate who needs more focused project items.',
-      atsCompatibility: 'Compatible structure. Single column is parseable.',
-      missingKeywords: ['TypeScript', 'Node.js', 'Express', 'MongoDB', 'Docker', 'CI/CD'],
-      improvements: [
-        { action: 'Rewrite projects to follow STAR methodology', done: false, priority: 'High' },
-        { action: 'Add relevant TypeScript or backend engineering skills', done: true, priority: 'High' }
-      ],
-      redFlags: ['Short descriptions that lack engineering depth']
-    },
+    atsReport: null,
     createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   },
@@ -50,33 +57,52 @@ export const mockResumes: any[] = [
     version: 'v2.0',
     textContent: 'Demo User - Full Stack Developer\nExperience: Software Engineer Intern at Stripe. Re-architected payment API routes. Built interactive frontend views using React 19, TypeScript, TailwindCSS. Coded backend server routes in Node.js and Mongoose.\nSkills: React, TypeScript, Node.js, MongoDB, TailwindCSS, Docker, Git.',
     isActive: true,
-    atsReport: {
-      score: 88,
-      keywordScore: 88,
-      formattingScore: 90,
-      grammarScore: 95,
-      experienceScore: 85,
-      projectsScore: 85,
-      skillsScore: 90,
-      educationScore: 85,
-      leadershipScore: 75,
-      impactScore: 82,
-      summary: 'Excellent resume containing highly parseable technical keywords. Strong project details with clear metrics.',
-      strengths: ['Strong keyword density matching modern SaaS requirements', 'Use of action verbs and concrete measurements', 'Good balance of Frontend and Backend frameworks'],
-      weaknesses: ['Could elaborate on cloud services (AWS, Serverless) and automated tests (Jest, Playwright)'],
-      recruiterPerspective: 'A solid candidate for Full Stack or Backend Internships. Demonstrates actual project implementations.',
-      atsCompatibility: '100% parseable. Headers use standard keywords.',
-      missingKeywords: ['Jest', 'AWS', 'Kubernetes', 'CI/CD', 'GraphQL'],
-      improvements: [
-        { action: 'Integrate testing coverage frameworks', done: false, priority: 'Medium' },
-        { action: 'Add cloud database details', done: false, priority: 'Low' }
-      ],
-      redFlags: []
-    },
+    atsReport: null,
     createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
   }
 ];
+
+// Hydrate mock resume reports dynamically
+mockResumes[0].atsReport = {
+  ...getMockATSAnalysis(mockResumes[0].textContent),
+  score: 68,
+  keywordScore: 60,
+  formattingScore: 85,
+  grammarScore: 90,
+  experienceScore: 55,
+  projectsScore: 60,
+  skillsScore: 65,
+  educationScore: 85,
+  leadershipScore: 40,
+  impactScore: 50,
+  summary: 'The resume lists basic skills, but is missing technical details. Formatting is clean, but doesn\'t represent metrics or direct projects outcomes.',
+  strengths: ['Clean single-column page format', 'Grammatically correct and structured'],
+  weaknesses: ['Missing enterprise keywords like Node.js, WebSockets, or Cloud Providers', 'No quantified metrics (XYZ Formula)'],
+  recruiterPerspective: 'Appears as an entry-level candidate who needs more focused project items.',
+  atsCompatibility: 'Compatible structure. Single column is parseable.',
+  missingKeywords: ['TypeScript', 'Node.js', 'Express', 'MongoDB', 'Docker', 'CI/CD']
+};
+
+mockResumes[1].atsReport = {
+  ...getMockATSAnalysis(mockResumes[1].textContent),
+  score: 88,
+  keywordScore: 88,
+  formattingScore: 90,
+  grammarScore: 95,
+  experienceScore: 85,
+  projectsScore: 85,
+  skillsScore: 90,
+  educationScore: 85,
+  leadershipScore: 75,
+  impactScore: 82,
+  summary: 'Excellent resume containing highly parseable technical keywords. Strong project details with clear metrics.',
+  strengths: ['Strong keyword density matching modern SaaS requirements', 'Use of action verbs and concrete measurements', 'Good balance of Frontend and Backend frameworks'],
+  weaknesses: ['Could elaborate on cloud services (AWS, Serverless) and automated tests (Jest, Playwright)'],
+  recruiterPerspective: 'A solid candidate for Full Stack or Backend Internships. Demonstrates actual project implementations.',
+  atsCompatibility: '100% parseable. Headers use standard keywords.',
+  missingKeywords: ['Jest', 'AWS', 'Kubernetes', 'CI/CD', 'GraphQL']
+};
 
 export const getResumes = async (req: AuthRequest, res: Response) => {
   try {
@@ -95,20 +121,25 @@ export const uploadResume = async (req: AuthRequest, res: Response) => {
     let fileName = req.body.fileName || 'resume.pdf';
     let textContent = req.body.textContent || '';
     const jobDescription = req.body.jobDescription || '';
+    let fileUrl = ''; // Will be set if a binary file is uploaded
 
-    // If a file is uploaded via Multer
+    // If a file is uploaded via Multer, extract text AND build a data URL for download
     if (req.file) {
       fileName = req.file.originalname;
       const mimetype = req.file.mimetype;
 
+      // Store base64 data URL so the frontend can offer a direct download
+      fileUrl = `data:${mimetype};base64,${req.file.buffer.toString('base64')}`;
+
       if (mimetype === 'application/pdf') {
         try {
-          const pdfParser = typeof pdf === 'function' ? pdf : (pdf as any).default;
-          const parsed = await pdfParser(req.file.buffer);
-          textContent = parsed.text || '';
-        } catch (err) {
-          console.error('PDF parsing failed:', err);
-          return res.status(400).json({ success: false, message: 'Failed to parse PDF file content.' });
+          textContent = await extractPdfText(req.file.buffer);
+        } catch (err: any) {
+          console.error('PDF parsing failed:', err?.message ?? err);
+          return res.status(400).json({
+            success: false,
+            message: err?.message || 'Failed to parse PDF file content. Try the paste mode instead.',
+          });
         }
       } else if (
         mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
@@ -122,7 +153,7 @@ export const uploadResume = async (req: AuthRequest, res: Response) => {
           return res.status(400).json({ success: false, message: 'Failed to parse Word document content.' });
         }
       } else {
-        // Plain text
+        // Plain text fallback
         textContent = req.file.buffer.toString('utf8');
       }
     }
@@ -144,6 +175,7 @@ export const uploadResume = async (req: AuthRequest, res: Response) => {
     const newResume = await Resume.create({
       ownerId,
       fileName,
+      fileUrl,
       version,
       textContent,
       atsReport,
@@ -168,9 +200,7 @@ export const uploadResume = async (req: AuthRequest, res: Response) => {
       const mimetype = req.file.mimetype;
       if (mimetype === 'application/pdf') {
         try {
-          const pdfParser = typeof pdf === 'function' ? pdf : (pdf as any).default;
-          const parsed = await pdfParser(req.file.buffer);
-          fallbackText = parsed.text || '';
+          fallbackText = await extractPdfText(req.file.buffer);
         } catch {}
       } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         try {
@@ -256,28 +286,7 @@ export const deleteResume = async (req: AuthRequest, res: Response) => {
   }
 };
 
-const getMockATSAnalysis = (textContent: string = '', jobDescription: string = '') => {
-  return {
-    score: 75,
-    keywordScore: 70,
-    formattingScore: 80,
-    grammarScore: 90,
-    experienceScore: 72,
-    projectsScore: 75,
-    skillsScore: 78,
-    educationScore: 85,
-    leadershipScore: 60,
-    impactScore: 68,
-    summary: 'The uploaded file has been parsed and reviewed. Keyword correlation is decent, but some primary tech-stack terms are missing.',
-    strengths: ['Clean structural layouts', 'Active voice throughout job items'],
-    weaknesses: ['Lack of quantitative impact statements'],
-    recruiterPerspective: 'Has a solid engineering basis but is missing key indicators of performance speed and reliability.',
-    atsCompatibility: 'Good structural parseability.',
-    missingKeywords: ['Docker', 'AWS', 'Jest', 'CI/CD'],
-    improvements: [{ action: 'Inject data targets into experience summaries', done: false, priority: 'High' }],
-    redFlags: []
-  };
-};
+
 
 export const updateResumeChecklist = async (req: AuthRequest, res: Response) => {
   const { action, done } = req.body;
@@ -305,4 +314,34 @@ export const updateResumeChecklist = async (req: AuthRequest, res: Response) => 
     res.json({ success: true, data: item });
   }
 };
+
+export const analyzeResumeAgainstJD = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { jobDescription } = req.body;
+  const ownerId = req.user?.id || '660f54b68449c25fbc7e63b1';
+
+  try {
+    const resume = await Resume.findOne({ _id: id, ownerId });
+    if (!resume) {
+      const mockItem = mockResumes.find(r => r._id === id && r.ownerId === ownerId);
+      if (!mockItem) {
+        return res.status(404).json({ success: false, message: 'Resume not found.' });
+      }
+      const atsReport = await analyzeResume(mockItem.textContent, jobDescription || '');
+      mockItem.atsReport = atsReport;
+      return res.status(200).json({ success: true, data: mockItem });
+    }
+
+    const atsReport = await analyzeResume(resume.textContent, jobDescription || '');
+    resume.atsReport = atsReport;
+    resume.markModified('atsReport');
+    await resume.save();
+
+    res.status(200).json({ success: true, data: resume });
+  } catch (error: any) {
+    console.error('Error analyzing resume:', error);
+    res.status(500).json({ success: false, message: 'Failed to analyze resume.', error: error.message });
+  }
+};
+
 

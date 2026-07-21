@@ -6,6 +6,13 @@ const ChecklistItemSchema = new Schema({
   priority: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium' }
 });
 
+const SectionDetailSchema = new Schema({
+  score: { type: Number, default: 0 },
+  status: { type: String, default: '' },
+  explanation: { type: String, default: '' },
+  example: { type: String, default: '' }
+}, { _id: false });
+
 const ATSReportSchema = new Schema({
   score: { type: Number, default: 0 },
   keywordScore: { type: Number, default: 0 },
@@ -24,7 +31,26 @@ const ATSReportSchema = new Schema({
   atsCompatibility: { type: String, default: '' },
   missingKeywords: [{ type: String }],
   improvements: [ChecklistItemSchema],
-  redFlags: [{ type: String }]
+  redFlags: [{ type: String }],
+  
+  // Detailed Section and Metrics
+  keywordsMatchedCount: { type: Number, default: 0 },
+  keywordsMissingCount: { type: Number, default: 0 },
+  quantifiedBulletsCount: { type: Number, default: 0 },
+  sectionsPresentCount: { type: Number, default: 0 },
+  sectionsTotalCount: { type: Number, default: 9 },
+  foundKeywords: [{ type: String }],
+  sections: {
+    contact: { type: SectionDetailSchema, default: () => ({}) },
+    experience: { type: SectionDetailSchema, default: () => ({}) },
+    quantification: { type: SectionDetailSchema, default: () => ({}) },
+    skills: { type: SectionDetailSchema, default: () => ({}) },
+    education: { type: SectionDetailSchema, default: () => ({}) },
+    projects: { type: SectionDetailSchema, default: () => ({}) },
+    certifications: { type: SectionDetailSchema, default: () => ({}) },
+    formatting: { type: SectionDetailSchema, default: () => ({}) },
+    summary: { type: SectionDetailSchema, default: () => ({}) }
+  }
 });
 
 const ResumeSchema = new Schema({

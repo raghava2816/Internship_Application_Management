@@ -17,6 +17,11 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction) => 
     token = req.headers.authorization.split(' ')[1];
   }
 
+  // Also accept token from query string (needed for SSE EventSource which can't set headers)
+  if (!token && req.query.token) {
+    token = req.query.token as string;
+  }
+
   if (!token) {
     return res.status(401).json({ success: false, message: 'Not authorized to access this route' });
   }

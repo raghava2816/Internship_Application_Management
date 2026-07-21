@@ -31,6 +31,8 @@ interface AuthContextType {
   socialLogin: (provider: 'google' | 'github', id: string, email: string, name: string, avatarUrl?: string) => Promise<void>;
   logout: () => void;
   updateProfile: (updatedData: Partial<UserType>) => Promise<void>;
+  getOAuthConfig: () => Promise<{ googleClientId: string; githubClientId: string }>;
+  completeOAuthLogin: (provider: string, code: string, redirectUri: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -225,8 +227,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const getOAuthConfig = async () => {
+    try {
+      const res = await axios.get('/api/auth/oauth-config');
+      if (res.data.success) {
+        return res.data.data;
+      }
+      return { googleClientId: '', githubClientId: '' };
+    } catch {
+      return { googleClientId: '', githubClientId: '' };
+    }
+  };
+
+  const completeOAuthLogin = async (provider: string, code: string, redirectUri: string) => {
+    setLoading(true);
+    try {
+      const res = await axios.post('/api/auth/oauth-callback', { provider, code, redirectUri });
+      if (res.data.success) {
+        localStorage.setItem('token', res.data.token);
+        setToken(res.data.token);
+        setUser(res.data.user);
+        setIsOfflineMode(false);
+      }
+    } catch (error) {
+      console.error('OAuth callback validation failed', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, isOfflineMode, login, register, socialLogin, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, token, loading, isOfflineMode, login, register, socialLogin, logout, updateProfile, getOAuthConfig, completeOAuthLogin }}>
       {children}
     </AuthContext.Provider>
   );

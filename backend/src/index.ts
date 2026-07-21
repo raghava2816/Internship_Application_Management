@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+dotenv.config();
 import dns from 'dns';
 
 // Force Node.js DNS resolver to use IPv4 first. This prevents IPv6 SRV resolution failures on Jio/consumer networks.
@@ -13,7 +14,6 @@ import aiRoutes from './routes/aiRoutes';
 import adminRoutes from './routes/adminRoutes';
 import { errorHandler } from './middleware/errorMiddleware';
 
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,6 +28,15 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Disable response buffering for SSE routes (ensures tokens flush immediately)
+app.use((req, res, next) => {
+  if (req.path.includes('/stream') || req.path.includes('/live-feed')) {
+    res.setHeader('X-Accel-Buffering', 'no');
+    (res as any).flush = () => {}; // no-op compat shim
+  }
+  next();
+});
 
 // Log requests
 app.use((req, res, next) => {

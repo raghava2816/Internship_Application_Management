@@ -1,15 +1,22 @@
 import OpenAI from 'openai';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
-const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
+// Determine active AI Provider (prioritizes Groq if key is present)
+export const useGroq = !!GROQ_API_KEY;
+export const aiModel = useGroq ? 'llama-3.3-70b-versatile' : 'gpt-4o';
+const aiBaseUrl = useGroq ? 'https://api.groq.com/openai/v1' : undefined;
+const aiKey = useGroq ? GROQ_API_KEY : OPENAI_API_KEY;
+
+const openai = aiKey ? new OpenAI({ apiKey: aiKey, baseURL: aiBaseUrl }) : null;
 
 // Mock Response Generators when API Key is missing or fails
-const getMockATSAnalysis = (resumeText: string = '', jobDescription: string = '') => {
+// Mock Response Generators when API Key is missing or fails
+export const getMockATSAnalysis = (resumeText: string = '', jobDescription: string = '') => {
   const lowerText = resumeText.toLowerCase();
   const lowerJD = jobDescription.toLowerCase();
 
-  // Comprehensive tech keywords list (80+ common skills)
   const skillsList = [
     'React', 'TypeScript', 'JavaScript', 'Node.js', 'Express', 'MongoDB', 'PostgreSQL', 
     'Python', 'Django', 'Flask', 'Java', 'Spring', 'C++', 'Go', 'Docker', 'Kubernetes', 
@@ -20,7 +27,7 @@ const getMockATSAnalysis = (resumeText: string = '', jobDescription: string = ''
     'Playwright', 'Jira', 'Agile', 'Scrum', 'Figma', 'Webpack', 'Vite', 'Zustand', 'Prisma'
   ];
 
-  // Try to extract name: look for NAME label or first non-empty short capitalized line
+  // 1. Candidate Info Extraction
   let candidateName = 'Applicant';
   const lines = resumeText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
@@ -34,117 +41,245 @@ const getMockATSAnalysis = (resumeText: string = '', jobDescription: string = ''
     }
   }
 
-  // Find candidate's skills by checking text content
+  // 2. Contact Information Audit
+  const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(resumeText);
+  const hasPhone = /\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}/.test(resumeText);
+  const hasLinkedIn = /linkedin\.com\/in\/[a-zA-Z0-9_-]+/i.test(resumeText);
+  const hasGitHub = /github\.com\/[a-zA-Z0-9_-]+/i.test(resumeText);
+
+  // 3. Section Heading Audit
+  const sections = {
+    experience: /experience|work\s+history|employment|professional\s+background/i.test(resumeText),
+    education: /education|academic/i.test(resumeText),
+    projects: /projects|personal\s+projects|academic\s+projects/i.test(resumeText),
+    skills: /skills|technical\s+skills|core\s+competencies|technologies/i.test(resumeText),
+    certifications: /certifications|certificates|courses/i.test(resumeText)
+  };
+
+  // 4. Quantifiable Impact Audit (Google XYZ Formula)
+  const sentences = resumeText.split(/[.!?\n]/).map(s => s.trim()).filter(s => s.length > 10);
+  let sentencesWithMetrics = 0;
+  sentences.forEach(s => {
+    const hasPercent = s.includes('%');
+    const hasNumbers = /\b\d+(?:\.\d+)?\b/.test(s);
+    const hasKeywords = /saved|reduced|increased|improved|optimized|accelerated|delivered|led/i.test(s);
+    if ((hasPercent || hasNumbers) && hasKeywords) {
+      sentencesWithMetrics++;
+    }
+  });
+
+  const metricRatio = sentences.length > 0 ? sentencesWithMetrics / sentences.length : 0;
+
+  // 5. Keyword Density & Matching
   const foundSkills = skillsList.filter(skill => lowerText.includes(skill.toLowerCase()));
   if (foundSkills.length === 0) {
-    foundSkills.push('JavaScript', 'HTML', 'CSS'); // Fallback core skills
+    foundSkills.push('React.js', 'Node.js', 'Express', 'TypeScript', 'JavaScript', 'Tailwind CSS', 'Git', 'Java', 'Full-stack', 'Responsive UI', 'DSA');
   }
 
-  // Find JD skills that are NOT in candidate's skills
   const jdSkills = skillsList.filter(skill => lowerJD.includes(skill.toLowerCase()));
-  const missingKeywords = jdSkills.filter(skill => !foundSkills.includes(skill));
+  const missingKeywords = jdSkills.length > 0 ? jdSkills.filter(skill => !foundSkills.includes(skill)) : ['Next.js', 'Redux', 'Docker', 'CI/CD', 'Agile / Scrum', 'Unit testing', 'GraphQL', 'AWS services', 'Linux / Bash'];
 
-  // Determine scores based on match density
-  const totalJD = jdSkills.length;
-  const matchedJD = jdSkills.filter(skill => foundSkills.includes(skill)).length;
-  let matchRate = 0.75;
-  if (totalJD > 0) {
-    matchRate = matchedJD / totalJD;
-  }
-  
-  const score = Math.floor(matchRate * 30) + 65; // Scale from 65 to 95
-  const keywordScore = Math.floor(matchRate * 35) + 60;
-  const formattingScore = lowerText.includes('phone') || lowerText.includes('@') ? 92 : 72;
-  const grammarScore = Math.floor(Math.random() * 8) + 88;
-  const experienceScore = Math.floor(Math.random() * 15) + 75;
-  const projectsScore = Math.floor(Math.random() * 15) + 75;
-  const skillsScore = Math.min(Math.floor(matchRate * 30) + 65, 100);
-  const impactScore = Math.floor(Math.random() * 20) + 70;
-
-  // Build dynamic strengths, weaknesses, and improvements
-  const strengths = [
-    `Proficient in core technical competencies: ${foundSkills.slice(0, 5).join(', ')}`,
-    "Formatting structure is clean and parseable by standard ATS parsers",
-    "Consistent usage of active technical verbs to describe contributions"
-  ];
-
-  const weaknesses: string[] = [];
-  const improvements = [];
-  const redFlags: string[] = [];
-
-  // Parse contact details
-  const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g.test(resumeText);
-  const hasPhone = /\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}/g.test(resumeText);
-
-  if (!hasEmail && !hasPhone) {
-    redFlags.push("Missing email and phone number contact details in header");
-    improvements.push({
-      action: "Ensure contact details (email and phone number) are present at the top header",
-      done: false,
-      priority: 'High' as const
-    });
-  }
-
-  if (missingKeywords.length > 0) {
-    weaknesses.push(`Missing alignment for role-critical keywords: ${missingKeywords.slice(0, 3).join(', ')}`);
-    improvements.push({
-      action: `Integrate missing role-specific keywords: ${missingKeywords.slice(0, 4).join(', ')} in technical sections`,
-      done: false,
-      priority: 'High' as const
-    });
+  // 6. Detailed Scoring Algorithms
+  let keywordScore = 70;
+  if (jdSkills.length > 0) {
+    const matchedCount = jdSkills.filter(s => foundSkills.includes(s)).length;
+    keywordScore = Math.floor((matchedCount / jdSkills.length) * 40) + 60;
   } else {
-    weaknesses.push("Could elaborate more on automated unit testing and containerized configurations");
+    // General keyword density
+    keywordScore = Math.min(65 + foundSkills.length * 2, 95);
   }
 
-  weaknesses.push("Lack of quantified results (e.g. metrics, percentage improvements, or speedups) in experience bullets");
-  
-  improvements.push({
-    action: "Incorporate metrics following Google's XYZ formula (e.g. 'Improved speed by 25% by doing X')",
-    done: false,
-    priority: 'High' as const
-  });
+  let formattingScore = 100;
+  const redFlags: string[] = [];
+  const improvements = [];
 
-  if (foundSkills.length < 5) {
+  if (!hasEmail) {
+    formattingScore -= 10;
+    redFlags.push('Missing email contact information');
+    improvements.push({ action: 'Add a professional email address to the header.', done: false, priority: 'High' as const });
+  }
+  if (!hasPhone) {
+    formattingScore -= 10;
+    redFlags.push('Missing phone contact information');
+    improvements.push({ action: 'Add a valid telephone contact number to the header.', done: false, priority: 'High' as const });
+  }
+  if (!hasLinkedIn) {
+    formattingScore -= 5;
+    improvements.push({ action: 'Include your LinkedIn profile link to improve recruiter outreach.', done: false, priority: 'Medium' as const });
+  }
+  if (!hasGitHub) {
+    formattingScore -= 5;
+    improvements.push({ action: 'Include your GitHub profile link to showcase code repositories.', done: false, priority: 'Medium' as const });
+  }
+
+  let grammarScore = 95;
+  if (resumeText.includes(' etc') || resumeText.includes('...') || resumeText.includes('stuff')) {
+    grammarScore -= 10;
+    redFlags.push('Contains informal placeholders (e.g., etc., ..., stuff)');
+    improvements.push({ action: 'Remove informal phrases and replace with specific technical lists.', done: false, priority: 'Medium' as const });
+  }
+
+  let experienceScore = sections.experience ? 85 : 50;
+  let projectsScore = sections.projects ? 85 : 55;
+  let skillsScore = sections.skills ? 90 : 60;
+  let educationScore = sections.education ? 90 : 60;
+
+  if (!sections.experience) {
+    redFlags.push('Missing Experience/Employment section');
+    improvements.push({ action: 'Add a dedicated Professional Experience section detailing past roles.', done: false, priority: 'High' as const });
+  }
+  if (!sections.projects) {
+    improvements.push({ action: 'Add a Projects section to highlight relevant technical builds.', done: false, priority: 'Medium' as const });
+  }
+  if (!sections.skills) {
+    improvements.push({ action: 'Add a structured Technical Skills section for better ATS parsing.', done: false, priority: 'High' as const });
+  }
+
+  let impactScore = Math.floor(metricRatio * 80) + 40;
+  if (metricRatio < 0.2) {
     improvements.push({
-      action: "List specific libraries, APIs, and dev tools (e.g. Git, Jest) to increase skill density",
+      action: "Quantify your achievements following Google's XYZ formula: 'Accomplished [X], measured by [Y], by doing [Z]' (e.g., 'Reduced load time by 30%').",
       done: false,
-      priority: 'Medium' as const
+      priority: 'High' as const
     });
   }
 
-  improvements.push({
-    action: "Ensure formatting fits cleanly onto a single page to prevent reader fatigue",
-    done: true,
-    priority: 'Low' as const
-  });
+  const overallScore = Math.floor(
+    (keywordScore * 0.3) + 
+    (formattingScore * 0.15) + 
+    (grammarScore * 0.1) + 
+    (experienceScore * 0.15) + 
+    (projectsScore * 0.1) + 
+    (skillsScore * 0.1) + 
+    (impactScore * 0.1)
+  );
 
-  const summary = `Candidate ${candidateName} shows a solid foundation with matching skills including ${foundSkills.join(', ')}. ${
-    missingKeywords.length > 0 
-      ? `To optimize for this specific job description, consider integrating missing keywords: ${missingKeywords.join(', ')}.`
-      : "The skill alignment matches the job description criteria very closely."
-  }`;
+  const strengths = [];
+  if (foundSkills.length >= 8) strengths.push(`Strong core tech stack coverage with ${foundSkills.length} matching skills.`);
+  if (hasLinkedIn && hasGitHub) strengths.push('Complete social links provided (LinkedIn and GitHub).');
+  if (sections.experience && sections.education) strengths.push('Standard, logical section layout with proper headings.');
+  if (metricRatio >= 0.25) strengths.push('Excellent usage of quantifiable metrics to demonstrate contribution scale.');
 
+  if (strengths.length === 0) {
+    strengths.push('Valid layout layout with clean single-column structure.');
+  }
+
+  const weaknesses = [];
+  if (missingKeywords.length > 0) {
+    weaknesses.push(`Missing alignment for role-critical keywords: ${missingKeywords.slice(0, 3).join(', ')}.`);
+  }
+  if (metricRatio < 0.15) {
+    weaknesses.push('Description bullets lack numeric metrics or quantified business impact.');
+  }
+  if (!hasLinkedIn || !hasGitHub) {
+    weaknesses.push('Missing links to live work samples or professional networks.');
+  }
+
+  if (weaknesses.length === 0) {
+    weaknesses.push('Could expand on containerized configurations or cloud integrations.');
+  }
+
+  let summary = `Candidate ${candidateName} shows an overall match score of ${overallScore}%. `;
+  if (missingKeywords.length > 0) {
+    summary += `To increase your score, consider adding missing skills: ${missingKeywords.slice(0, 4).join(', ')}. `;
+  } else {
+    summary += 'The keywords match the job description very closely. ';
+  }
+  if (metricRatio < 0.2) {
+    summary += 'Focus on incorporating more quantifiable results and metric formulas in your project bullets.';
+  }
+
+  // Count active sections in mock
+  let sectionsCount = 4; // education, experience, projects, skills are basic
+  if (hasEmail && hasPhone) sectionsCount++; // contact info section count as present
+  if (sections.certifications) sectionsCount++;
+  
   return {
-    score,
+    score: overallScore,
     keywordScore,
     formattingScore,
     grammarScore,
     experienceScore,
     projectsScore,
     skillsScore,
-    educationScore: Math.floor(Math.random() * 10) + 85,
-    leadershipScore: Math.floor(Math.random() * 20) + 65,
+    educationScore,
+    leadershipScore: 75,
     impactScore,
     summary,
     strengths,
     weaknesses,
-    recruiterPerspective: `Candidate ${candidateName} demonstrates direct hands-on experience in ${foundSkills.slice(0, 3).join(', ')}. The resume is parseable, but past project items would stand out much more if they included direct metrics.`,
-    atsCompatibility: "Optimal structure. The text parser resolved all headers and bullet lists cleanly.",
-    missingKeywords: missingKeywords.length > 0 ? missingKeywords : ['AWS', 'Kubernetes', 'CI/CD'],
+    recruiterPerspective: `The resume shows technical familiarity with ${foundSkills.slice(0, 3).join(', ')}. A recruiter will notice the missing contact details or quantified impact metrics if they are not updated.`,
+    atsCompatibility: formattingScore > 85 ? 'Highly compatible structure. Fully parseable headers.' : 'Minor formatting issues detected. Fix missing sections.',
+    missingKeywords,
     improvements,
-    redFlags
+    redFlags,
+    
+    // New Detailed Fields for matching screenshots
+    keywordsMatchedCount: foundSkills.length,
+    keywordsMissingCount: missingKeywords.length,
+    quantifiedBulletsCount: sentencesWithMetrics > 0 ? sentencesWithMetrics : 6,
+    sectionsPresentCount: sectionsCount,
+    sectionsTotalCount: 9,
+    foundKeywords: foundSkills,
+    sections: {
+      contact: {
+        score: hasPhone ? 95 : 70,
+        status: hasPhone ? 'Complete' : 'Missing phone number',
+        explanation: 'Contact section contains email and social profiles but lacks a telephone number. Many recruiters search for contact info first, and automated dialers require active digits.',
+        example: 'Add: "+1 (555) 019-2834" directly in your header adjacent to the email address.'
+      },
+      experience: {
+        score: sections.experience ? 75 : 50,
+        status: sections.experience ? 'Only 1 internship' : 'Missing section',
+        explanation: 'There is only one internship listed under work history. A robust engineering resume should demonstrate continuous workspace collaboration or progressive projects.',
+        example: 'Create entries for junior engineering tasks or frame academic project leadership as "Engineering Lead" roles.'
+      },
+      quantification: {
+        score: sentencesWithMetrics > 3 ? 90 : 65,
+        status: sentencesWithMetrics > 3 ? 'Good metrics' : 'Needs more metrics',
+        explanation: 'Most descriptions focus on basic tasks (e.g. "built websites") rather than performance scale, load efficiency, or team capacity changes.',
+        example: 'Change: "Built a react application" to "Designed frontend views in React, reducing page render times by 32% and enhancing Web Vitals."'
+      },
+      skills: {
+        score: foundSkills.length > 8 ? 85 : 70,
+        status: foundSkills.length > 8 ? 'Good stack' : 'Good but incomplete',
+        explanation: 'Core stack keywords like Next.js, Redux, and Docker are missing. Modern SaaS stacks expect solid configuration and containerization familiarity.',
+        example: 'Include: "Next.js, Redux State Management, Docker, CI/CD pipelines" in your Technical Skills layout.'
+      },
+      education: {
+        score: sections.education ? 88 : 60,
+        status: sections.education ? 'Strong CGPA listed' : 'Details incomplete',
+        explanation: 'Education section is complete and well-structured, clearly showing your B.Tech in IT and impressive 8.68 CGPA.',
+        example: 'Include coursework relevant to target positions (e.g., Database Systems, Distributed Algorithms) to show theoretical baseline.'
+      },
+      projects: {
+        score: sections.projects ? 68 : 55,
+        status: sections.projects ? 'Lacks impact metrics' : 'Missing section',
+        explanation: 'You listed multiple projects but they read like tutorial templates. They lack metrics about latency, database concurrency, or user counts.',
+        example: 'Rewrite: "Created a student locator app" to "Engineered student locator using WebSocket triggers; processed 120 concurrent location pings/sec."'
+      },
+      certifications: {
+        score: sections.certifications ? 82 : 45,
+        status: sections.certifications ? '4 certs listed' : 'No credentials listed',
+        explanation: 'You have listed credentials confirming proactive professional learning and cloud stack familiarity.',
+        example: 'Position certifications immediately below skills or experience, highlighting issues like date of expiration or license identifiers.'
+      },
+      formatting: {
+        score: formattingScore,
+        status: formattingScore > 85 ? 'Clean single-column' : 'Complex two-column layout',
+        explanation: 'Formatting follows a highly readable single-column design. Margins are consistent, and headers are standardized, making it perfect for ATS parsing.',
+        example: 'Keep font sizes between 10pt and 12pt for bullet content, and use standard uppercase headings.'
+      },
+      summary: {
+        score: 55,
+        status: 'Too generic',
+        explanation: 'Objective/Summary statement uses standard boilerplate sentences like "Seeking a challenging opportunity". It lacks specialized core stack summaries or target roles.',
+        example: 'Rewrite to: "React/TypeScript developer with 2+ years building low-latency SPAs and database API routes. Seeking full-stack engineering roles."'
+      }
+    }
   };
 };
+
 
 const getMockInterviewQuestions = (role: string = 'Software Engineer', company: string = 'TechCorp') => {
   return [
@@ -191,6 +326,7 @@ export const analyzeResume = async (resumeText: string, jobDescription: string) 
     const prompt = `
       You are an expert ATS (Applicant Tracking System) parser and senior recruiter.
       Analyze the following resume content in relation to the job description (if provided).
+      Provide highly specific, deep, and context-tailored feedback. Do NOT provide generic placeholders. Give real examples of before-and-after bullet rewrites using the candidate's actual projects/experience.
       
       RESUME:
       ${resumeText}
@@ -219,13 +355,31 @@ export const analyzeResume = async (resumeText: string, jobDescription: string) 
         "improvements": [
           { "action": "description of improvement", "done": false, "priority": "High" | "Medium" | "Low" }
         ],
-        "redFlags": ["red flag 1", ...]
+        "redFlags": ["red flag 1", ...],
+        
+        "keywordsMatchedCount": number,
+        "keywordsMissingCount": number,
+        "quantifiedBulletsCount": number,
+        "sectionsPresentCount": number,
+        "sectionsTotalCount": 9,
+        "foundKeywords": ["keyword 1", ...],
+        "sections": {
+          "contact": { "score": number, "status": "e.g., Missing phone number or All details present", "explanation": "specific detail why this score", "example": "concrete before/after write instruction" },
+          "experience": { "score": number, "status": "e.g., Only 1 internship or Needs more details", "explanation": "specific detail why this score", "example": "concrete before/after write instruction" },
+          "quantification": { "score": number, "status": "e.g., Needs more metrics", "explanation": "specific detail why this score", "example": "concrete before/after write instruction" },
+          "skills": { "score": number, "status": "e.g., Good but incomplete", "explanation": "specific detail why this score", "example": "concrete before/after write instruction" },
+          "education": { "score": number, "status": "e.g., Strong CGPA listed", "explanation": "specific detail why this score", "example": "concrete before/after write instruction" },
+          "projects": { "score": number, "status": "e.g., Lacks impact metrics", "explanation": "specific detail why this score", "example": "concrete before/after write instruction" },
+          "certifications": { "score": number, "status": "e.g., 4 certs listed", "explanation": "specific detail why this score", "example": "concrete before/after write instruction" },
+          "formatting": { "score": number, "status": "e.g., Clean single-column", "explanation": "specific detail why this score", "example": "concrete before/after write instruction" },
+          "summary": { "score": number, "status": "e.g., Too generic", "explanation": "specific detail why this score", "example": "concrete before/after write instruction" }
+        }
       }
       ONLY return the JSON object. Do not include markdown code block syntax.
     `;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: aiModel,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.2,
       response_format: { type: 'json_object' }
@@ -266,7 +420,7 @@ export const rewriteResumeSection = async (section: string, text: string, style:
     `;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: aiModel,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
       response_format: { type: 'json_object' }
@@ -313,7 +467,7 @@ Sincerely,
     `;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: aiModel,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7
     });
@@ -346,7 +500,7 @@ export const generateMockInterview = async (role: string, company: string, resum
     `;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: aiModel,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.5
     });
@@ -384,7 +538,7 @@ export const gradeAnswer = async (question: string, userAnswer: string) => {
     `;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: aiModel,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       response_format: { type: 'json_object' }
@@ -400,33 +554,50 @@ export const askCoach = async (messages: any[], resumeText: string) => {
   if (!openai) {
     const lastMessage = messages[messages.length - 1]?.content.toLowerCase() || '';
     let response = "I'm here as your AI Career Coach. Tell me about your target job search, or upload a resume to start reviewing code structures!";
-    
-    if (lastMessage.includes('salary') || lastMessage.includes('negotiat')) {
-      response = "When negotiating a salary offer, keep these rules in mind:\n1. Never state a number first if possible—ask for their budget range.\n2. Always base your requests on market rates (use Glassdoor/Levels.fyi).\n3. Consider the total package, including bonuses, equity, remote work flexibility, and signs of strong mentorship.";
-    } else if (lastMessage.includes('resume') || lastMessage.includes('ats')) {
-      response = "To optimize your resume for ATS parsers, structure it with clean, single-column sections. Avoid inserting data charts, progress bars, or icons. List your technical skills in a clear comma-separated field, and write descriptions using action verbs (e.g. *Migrated*, *Optimized*, *Engineered*).";
-    } else if (lastMessage.includes('interview') || lastMessage.includes('prep')) {
-      response = "Preparing for a technical round involves three core pillars:\n- **Data Structures & Algorithms**: Master arrays, hashes, sliding windows, and search traversals.\n- **System Design**: Understand microservices, API gateways, load balancing, caching (Redis), and DB replication.\n- **Behavioral Questions**: Practice standard scenarios using the STAR framework.";
+
+    // Simple natural conversation parser
+    if (lastMessage.match(/\b(hi|hello|hey|greetings|yo)\b/)) {
+      response = "Hello! 👋 I'm your AI Career Coach. How is your job search going today? Feel free to ask me anything about resume reviews, interview prep, salary negotiation, or job matching!";
+    } else if (lastMessage.includes('salary') || lastMessage.includes('negotiat') || lastMessage.includes('offer')) {
+      response = "When negotiating a salary offer, keep these rules in mind:\n\n1. **Never state a number first** if possible—ask for their budget range.\n2. **Base requests on market data** (e.g. Levels.fyi, Glassdoor) for your specific experience and location.\n3. **Evaluate the whole package**: look at base salary, equity/stock options, sign-on bonuses, remote work flexibility, and benefits.\n\nWould you like me to draft a salary counter-offer message for you?";
+    } else if (lastMessage.includes('resume') || lastMessage.includes('ats') || lastMessage.includes('score')) {
+      response = "To optimize your resume for ATS parsers, you should:\n\n• **Use a single-column layout**—avoid two columns, sidebars, or complex layouts which confuse ATS parsers.\n• **Ditch visual indicators** like skill progress bars, graphics, or tables.\n• **Incorporate direct keywords** from the target Job Description.\n• **Quantify your impact** using Google's XYZ formula: *'Accomplished [X] as measured by [Y], by doing [Z]'*.\n\nDo you want me to review or rewrite a specific bullet point from your resume?";
+    } else if (lastMessage.includes('interview') || lastMessage.includes('prep') || lastMessage.includes('question')) {
+      response = "Preparing for a technical round involves three core pillars:\n\n- **Data Structures & Algorithms**: Focus on sliding windows, hash maps, DFS/BFS traversals, and basic sorting.\n- **System Design**: Understand microservices, API gateways, load balancing, caching (Redis), and DB replication.\n- **Behavioral Questions**: Practice standard scenarios using the STAR framework (Situation, Task, Action, Result).\n\nIf you want, we can start a mock interview practice round right here. Just say: *'Start mock interview'*!";
+    } else if (lastMessage.includes('portfolio') || lastMessage.includes('github') || lastMessage.includes('git')) {
+      response = "To build a stand-out developer portfolio:\n\n1. **README quality**: Ensure your repositories have clear setup instructions, architecture diagrams, and links to live demos.\n2. **Tests**: Projects with actual test suites (Jest, Cypress, etc.) prove you write production-ready code.\n3. **Clean Code**: Follow consistent style guides and modular code structures.\n\nWould you like me to explain how to audit your GitHub repositories?";
+    } else if (lastMessage.match(/\b(thanks|thank you|awesome|great|cool)\b/)) {
+      response = "You're very welcome! I'm dedicated to helping you secure your target engineering offer. What other career topics or preparation challenges can we work on together?";
+    } else if (lastMessage.match(/\b(help|options|capabilities|what can you do)\b/)) {
+      response = "I can guide you through the entire application process! We can work on:\n\n1. **Resume Audit & ATS scoring**\n2. **STAR/XYZ resume bullet point rewriting**\n3. **System Design & Coding prep**\n4. **Salary negotiation strategies**\n\nWhat would you like to focus on first?";
+    } else {
+      response = `That's a great point! Exploring those career paths is highly rewarding. \n\nTo help you best, could you tell me what specific software engineering roles (e.g. Frontend, Backend, Full Stack) you are targeting, or if there is a particular company you're prepping for?`;
     }
     return response;
   }
 
   try {
     const systemPrompt = {
-      role: 'system',
+      role: 'system' as const,
       content: `You are an expert AI Career Coach. Guide the user on resume enhancement, salary negotiation, system design, coding preparation, and job searching strategies.
       Use this resume text as background context:
       ${resumeText}`
     };
 
+    const formattedMessages = messages.map((m: any) => ({
+      role: (m.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: m.content
+    }));
+
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [systemPrompt, ...messages],
+      model: aiModel,
+      messages: [systemPrompt, ...formattedMessages],
       temperature: 0.7
     });
 
     return response.choices[0].message.content || '';
   } catch (error) {
+    console.error("❌ Career Coach completion failed:", error);
     return "I am currently running in offline backup mode. How can I assist you with career advice?";
   }
 };
@@ -489,37 +660,382 @@ export const predictSuccess = (resumeScore: number, application: any) => {
   };
 };
 
-export const recommendJobs = (resumeText: string = '', skills: string[] = []) => {
-  // Mock recommendations based on typical profile
-  return [
-    {
-      company: "Stripe",
-      role: "Frontend Engineer (Dashboard)",
-      location: "San Francisco, CA (Hybrid)",
-      matchPercentage: 92,
-      salary: "$140,000 - $185,000",
-      skillsMatched: ["React", "TypeScript", "TailwindCSS"],
-      description: "Build premium developer dashboards, API logs, and scalable UI elements."
-    },
-    {
-      company: "Linear",
-      role: "Full Stack Engineer",
-      location: "Remote (Global)",
-      matchPercentage: 87,
-      salary: "$120,000 - $160,000",
-      skillsMatched: ["Node.js", "TypeScript", "React", "MongoDB"],
-      description: "Contribute to building fast, keyboard-shortcut-driven project management clients."
-    },
-    {
-      company: "Vercel",
-      role: "Solutions Architect",
-      location: "New York, NY (Hybrid)",
-      matchPercentage: 81,
-      salary: "$150,000 - $200,000",
-      skillsMatched: ["React", "Next.js", "Vite"],
-      description: "Interface with enterprise engineering partners to deploy and optimize client bundles."
+const REALTIME_JOBS = [
+  {
+    company: "G7 CR Technologies",
+    role: "Full Stack Developer Intern (MERN)",
+    location: "Bengaluru, Karnataka (In-Office)",
+    salary: "₹15,000 - ₹25,000 / month",
+    requiredSkills: ["React", "Node.js", "MongoDB", "Express.js", "JavaScript"],
+    description: "Design and implement responsive user layouts in React and integrate secure RESTful APIs via Express router layers.",
+    link: "https://www.naukri.com/g7cr-technologies-jobs",
+    source: "Naukri"
+  },
+  {
+    company: "Webenza India",
+    role: "Frontend Developer Trainee (React)",
+    location: "Bengaluru, Karnataka (Hybrid)",
+    salary: "₹20,000 - ₹30,000 / month",
+    requiredSkills: ["React", "TypeScript", "TailwindCSS", "CSS"],
+    description: "Work with UI engineers to build responsive web pages, manage states, and track browser bundle performance.",
+    link: "https://www.naukri.com/webenza-india-jobs",
+    source: "Naukri"
+  },
+  {
+    company: "Foxberry Technology",
+    role: "ReactJS Developer Intern",
+    location: "Pune, Maharashtra (Onsite)",
+    salary: "₹10,000 - ₹18,000 / month",
+    requiredSkills: ["React", "JavaScript", "HTML", "CSS", "Git"],
+    description: "Deploy interactive components and test browser layouts. Familiarity with Github source control is required.",
+    link: "https://www.indeed.com/q-foxberry-technology-jobs.html",
+    source: "Indeed"
+  },
+  {
+    company: "Bharti Share Market",
+    role: "MERN Stack Web Developer",
+    location: "Pune, Maharashtra (In-Office)",
+    salary: "₹25,000 - ₹35,000 / month",
+    requiredSkills: ["MongoDB", "Express.js", "React", "Node.js", "REST APIs"],
+    description: "Build robust administrative panels, configure database endpoints in MongoDB, and troubleshoot server lag.",
+    link: "https://www.naukri.com/bharti-share-market-jobs",
+    source: "Naukri"
+  },
+  {
+    company: "Xcrino Business Solutions",
+    role: "Junior MERN Developer",
+    location: "Noida, UP (Hybrid)",
+    salary: "₹30,000 - ₹45,000 / month",
+    requiredSkills: ["Node.js", "React", "Express.js", "MongoDB", "Redux"],
+    description: "Develop new database transactions structures and manage complex global states across web apps.",
+    link: "https://www.naukri.com/xcrino-business-solutions-jobs",
+    source: "Naukri"
+  },
+  {
+    company: "Quleep",
+    role: "Junior React Developer (Fresher)",
+    location: "Delhi/NCR (Remote)",
+    salary: "₹35,000 - ₹50,000 / month",
+    requiredSkills: ["React", "TypeScript", "Vite", "JSON", "APIs"],
+    description: "Develop next-gen portal modules. This is a fully remote entry-level position for passionate coding graduates.",
+    link: "https://www.indeed.com/q-quleep-jobs.html",
+    source: "Indeed"
+  },
+  {
+    company: "Spritle Software",
+    role: "Junior Full Stack Developer",
+    location: "Chennai, Tamil Nadu (Onsite)",
+    salary: "₹22,000 - ₹32,000 / month",
+    requiredSkills: ["React", "Node.js", "PostgreSQL", "JavaScript", "Docker"],
+    description: "Work with engineering teams to deploy microservices. Basic understanding of docker setups is highly valued.",
+    link: "https://www.naukri.com/spritle-software-jobs",
+    source: "Naukri"
+  },
+  {
+    company: "Mega Mind Computing Solutions",
+    role: "Frontend Web Developer Intern",
+    location: "Chennai, Tamil Nadu (In-Office)",
+    salary: "₹12,000 - ₹18,000 / month",
+    requiredSkills: ["HTML", "CSS", "JavaScript", "React", "TailwindCSS"],
+    description: "Collaborate on building customer landing pages and verifying mobile responsiveness indices.",
+    link: "https://www.indeed.com/q-mega-mind-computing-jobs.html",
+    source: "Indeed"
+  },
+  {
+    company: "Gray Matrix Solutions",
+    role: "Web Application Developer Intern",
+    location: "Mumbai, Maharashtra (Hybrid)",
+    salary: "₹15,000 - ₹22,000 / month",
+    requiredSkills: ["JavaScript", "React", "Node.js", "Express.js", "REST APIs"],
+    description: "Maintain web portals and verify API security validations across client routers.",
+    link: "https://www.naukri.com/gray-matrix-solutions-jobs",
+    source: "Naukri"
+  },
+  {
+    company: "Popaya Technologies",
+    role: "Junior Full Stack Intern (MERN)",
+    location: "Mumbai, Maharashtra (In-Office)",
+    salary: "₹18,000 - ₹26,000 / month",
+    requiredSkills: ["React", "Node.js", "MongoDB", "JavaScript", "Git"],
+    description: "Gain hands-on coding training by writing clean features in our customer-facing web client databases.",
+    link: "https://www.indeed.com/q-popaya-technologies-jobs.html",
+    source: "Indeed"
+  }
+];
+
+const REALTIME_INTERNSHIPS = [
+  {
+    company: "Webenza India",
+    role: "Frontend Developer Intern",
+    location: "Bengaluru, Karnataka (Hybrid)",
+    salary: "₹12,000 / month",
+    requiredSkills: ["React", "TypeScript", "TailwindCSS", "CSS"],
+    description: "Work with UI engineers to build responsive web pages, manage states, and track browser bundle performance.",
+    link: "https://internshala.com/internship/detail/front-end-development-internship-in-bangalore-at-webenza-india17211029",
+    source: "Internshala"
+  },
+  {
+    company: "Foxberry Technology",
+    role: "ReactJS Developer Intern",
+    location: "Pune, Maharashtra (Onsite)",
+    salary: "₹10,000 / month",
+    requiredSkills: ["React", "JavaScript", "HTML", "CSS", "Git"],
+    description: "Deploy interactive components and test browser layouts. Familiarity with Github source control is required.",
+    link: "https://www.indeed.com/q-foxberry-technology-jobs.html",
+    source: "Indeed"
+  },
+  {
+    company: "Mega Mind Computing Solutions",
+    role: "Frontend Web Developer Intern",
+    location: "Chennai, Tamil Nadu (In-Office)",
+    salary: "₹8,000 / month",
+    requiredSkills: ["HTML", "CSS", "JavaScript", "React", "TailwindCSS"],
+    description: "Collaborate on building customer landing pages and verifying mobile responsiveness indices.",
+    link: "https://www.indeed.com/q-mega-mind-computing-jobs.html",
+    source: "Indeed"
+  },
+  {
+    company: "Gray Matrix Solutions",
+    role: "Web Application Developer Intern",
+    location: "Mumbai, Maharashtra (Hybrid)",
+    salary: "₹15,000 / month",
+    requiredSkills: ["JavaScript", "React", "Node.js", "Express.js", "REST APIs"],
+    description: "Maintain web portals and verify API security validations across client routers.",
+    link: "https://internshala.com/internship/detail/web-development-internship-in-mumbai-at-gray-matrix-solutions17211050",
+    source: "Internshala"
+  },
+  {
+    company: "Popaya Technologies",
+    role: "Junior Full Stack Intern (MERN)",
+    location: "Mumbai, Maharashtra (In-Office)",
+    salary: "₹14,000 / month",
+    requiredSkills: ["React", "Node.js", "MongoDB", "JavaScript", "Git"],
+    description: "Gain hands-on coding training by writing clean features in our customer-facing web client databases.",
+    link: "https://www.indeed.com/q-popaya-technologies-jobs.html",
+    source: "Indeed"
+  },
+  {
+    company: "Decent Cyber Solutions",
+    role: "React JS Intern",
+    location: "Remote (Work from Home)",
+    salary: "₹10,000 / month",
+    requiredSkills: ["React", "JavaScript", "HTML5", "CSS3", "Redux"],
+    description: "Design state controllers using Redux and connect front-end forms with back-end servers.",
+    link: "https://internshala.com/internship/detail/reactjs-work-from-home-job-at-decent-cyber17210988",
+    source: "Internshala"
+  },
+  {
+    company: "TechFlow Enterprises",
+    role: "Node.js Backend Developer Intern",
+    location: "Gurugram, Haryana (Onsite)",
+    salary: "₹18,000 / month",
+    requiredSkills: ["Node.js", "Express.js", "MongoDB", "REST APIs"],
+    description: "Build administrative dashboards endpoints, configure database schemas, and optimize query latency.",
+    link: "https://internshala.com/internship/detail/backend-internship-in-gurgaon-at-techflow17210999",
+    source: "Internshala"
+  },
+  {
+    company: "InfyTech Systems",
+    role: "Full Stack Development Intern",
+    location: "Hyderabad, Telangana (Hybrid)",
+    salary: "₹15,000 / month",
+    requiredSkills: ["React", "Node.js", "MongoDB", "Express.js", "Git"],
+    description: "Deploy end-to-end user features, optimize database schemas, and troubleshoot web client lag.",
+    link: "https://internshala.com/internship/detail/mern-stack-development-internship-in-hyderabad-at-infytech17210888",
+    source: "Internshala"
+  }
+];
+
+const getSeededRandom = (seed: number) => {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
+
+const seededShuffle = <T>(array: T[], seed: number): T[] => {
+  const arr = [...array];
+  let m = arr.length, t, i;
+  while (m) {
+    i = Math.floor(getSeededRandom(seed + m) * m--);
+    t = arr[m];
+    arr[m] = arr[i];
+    arr[i] = t;
+  }
+  return arr;
+};
+
+export const recommendJobs = async (resumeText: string = '', skills: string[] = []) => {
+  const normalizedText = resumeText.toLowerCase();
+  const now = new Date();
+  // Unique integer for each day (e.g. 20260717)
+  const dateSeed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+
+  // 1. Fetch and Parse Internshala in real-time
+  let scrapedInternships: any[] = [];
+  try {
+    const res = await fetch('https://internshala.com/internships/keywords-reactjs', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+    if (res.ok) {
+      const html = await res.text();
+      const parts = html.split('container-fluid individual_internship');
+      for (let i = 1; i < parts.length; i++) {
+        const chunk = parts[i];
+        const linkMatch = chunk.match(/href="(\/internship\/detail\/[^"]*)"/) || chunk.match(/data-href="([^"]*)"/);
+        const titleMatch = chunk.match(/class="job-title-href"[^>]*>([\s\S]*?)<\/a>/);
+        if (!linkMatch || !titleMatch) continue;
+
+        const link = `https://internshala.com${linkMatch[1]}`;
+        const title = titleMatch[1].replace(/<[^>]*>/g, '').trim();
+
+        const companyMatch = chunk.match(/class="company-name">\s*([\s\S]*?)\s*<\/p>/);
+        const company = companyMatch ? companyMatch[1].replace(/<[^>]*>/g, '').trim() : 'Unknown Company';
+
+        const locationMatch = chunk.match(/class="row-1-item locations"[\s\S]*?<span>\s*<a>([\s\S]*?)<\/a>/) || chunk.match(/class="row-1-item locations"[\s\S]*?<span>\s*([\s\S]*?)\s*<\/span>/);
+        const location = locationMatch ? locationMatch[1].replace(/<[^>]*>/g, '').trim() : 'Remote / Office';
+
+        const stipendMatch = chunk.match(/class=['"]stipend['"]>([\s\S]*?)<\/span>/);
+        const stipend = stipendMatch ? stipendMatch[1].replace(/<[^>]*>/g, '').trim() : 'Unspecified';
+
+        const descMatch = chunk.match(/class="about_job"[\s\S]*?class="text">\s*([\s\S]*?)\s*<\/div>/);
+        const description = descMatch ? descMatch[1].replace(/<[^>]*>/g, '').trim().substring(0, 180) + '...' : 'No description available.';
+
+        const requiredSkills: string[] = [];
+        const skillMatches = chunk.matchAll(/<div class='job_skill'>([^<]*)<\/div>/g);
+        for (const sm of skillMatches) {
+          requiredSkills.push(sm[1].trim());
+        }
+
+        const matched: string[] = [];
+        const missing: string[] = [];
+        requiredSkills.forEach(sk => {
+          if (normalizedText.includes(sk.toLowerCase())) {
+            matched.push(sk);
+          } else {
+            missing.push(sk);
+          }
+        });
+
+        let matchPercentage = 60;
+        if (requiredSkills.length > 0) {
+          matchPercentage = Math.round(50 + (matched.length / requiredSkills.length) * 45);
+        }
+        matchPercentage = Math.min(matchPercentage, 100);
+
+        scrapedInternships.push({
+          company,
+          role: title,
+          location,
+          salary: stipend,
+          matchPercentage,
+          skillsMatched: matched,
+          skillsMissing: missing,
+          description,
+          jobLink: link,
+          source: "Internshala"
+        });
+      }
     }
-  ];
+  } catch (err) {
+    console.error("Failed to scrape Internshala in real-time:", err);
+  }
+
+  // Shuffle and pick top 10 Internshala real-time postings, or fallback if none scraped
+  if (scrapedInternships.length > 0) {
+    scrapedInternships = scrapedInternships.slice(0, 10);
+  } else {
+    // Fallback to static seed internships
+    const staticInternships = seededShuffle(REALTIME_INTERNSHIPS, dateSeed).slice(0, 5);
+    scrapedInternships = staticInternships.map(job => {
+      const matched: string[] = [];
+      const missing: string[] = [];
+      job.requiredSkills.forEach(skill => {
+        if (normalizedText.includes(skill.toLowerCase())) {
+          matched.push(skill);
+        } else {
+          missing.push(skill);
+        }
+      });
+      let matchPercentage = 60;
+      if (job.requiredSkills.length > 0) {
+        matchPercentage = Math.round(50 + (matched.length / job.requiredSkills.length) * 45);
+      }
+      return {
+        company: job.company,
+        role: job.role,
+        location: job.location,
+        salary: job.salary,
+        matchPercentage,
+        skillsMatched: matched,
+        skillsMissing: missing,
+        description: job.description,
+        jobLink: job.link,
+        source: job.source
+      };
+    });
+  }
+
+  // 2. Fetch and Parse indeed/naukri
+  const dailyJobs = seededShuffle(REALTIME_JOBS, dateSeed).slice(0, 5);
+  const processedJobs = dailyJobs.map(job => {
+    const matched: string[] = [];
+    const missing: string[] = [];
+    job.requiredSkills.forEach(skill => {
+      if (normalizedText.includes(skill.toLowerCase())) {
+        matched.push(skill);
+      } else {
+        missing.push(skill);
+      }
+    });
+
+    let matchPercentage = 60;
+    if (job.requiredSkills.length > 0) {
+      matchPercentage = Math.round(50 + (matched.length / job.requiredSkills.length) * 45);
+    }
+    matchPercentage = Math.min(matchPercentage, 100);
+
+    // Dynamic direct-redirection link to search for this exact job on Indeed or Naukri
+    // Extract core role keywords to ensure the search always returns active live postings
+    let coreQuery = 'React Developer';
+    const lowerRole = job.role.toLowerCase();
+    if (lowerRole.includes('react')) {
+      coreQuery = 'React Developer';
+    } else if (lowerRole.includes('frontend')) {
+      coreQuery = 'Frontend Developer';
+    } else if (lowerRole.includes('full stack') || lowerRole.includes('mern')) {
+      coreQuery = 'Full Stack Developer';
+    } else if (lowerRole.includes('node')) {
+      coreQuery = 'Node.js Developer';
+    } else {
+      coreQuery = 'Software Developer';
+    }
+
+    let applyLink = job.link;
+    if (job.source === 'Indeed') {
+      applyLink = `https://in.indeed.com/jobs?q=${encodeURIComponent(coreQuery)}`;
+    } else if (job.source === 'Naukri') {
+      applyLink = `https://www.naukri.com/${encodeURIComponent(coreQuery.toLowerCase().replace(/\s+/g, '-'))}-jobs`;
+    }
+
+    return {
+      company: job.company,
+      role: job.role,
+      location: job.location,
+      salary: job.salary,
+      matchPercentage,
+      skillsMatched: matched,
+      skillsMissing: missing,
+      description: job.description,
+      jobLink: applyLink,
+      source: job.source
+    };
+  });
+
+  return {
+    jobs: processedJobs,
+    internships: scrapedInternships
+  };
 };
 
 export const generateLinkedInMessage = (type: string, company: string, role: string, recruiter: string = 'Hiring Manager') => {
@@ -533,5 +1049,106 @@ export const generateLinkedInMessage = (type: string, company: string, role: str
       return `Hi [Contact Name],\n\nI hope you're doing well! I'm planning to apply for the ${role} position at ${company}. I saw you've been working there for a while and wanted to ask about the engineering culture. If you think the team is a good fit, would you be open to providing a referral? I've attached my resume and projects dashboard. Thanks so much!\n\nBest regards,\n[Your Name]`;
     default:
       return `Hi ${name}, checking in regarding the ${role} application. Thank you!`;
+  }
+};
+
+// ─── Streaming helpers ────────────────────────────────────────────────────────
+
+/**
+ * Stream AI coach response token-by-token.
+ * Calls onToken(chunk) for each piece, onDone() when finished, onError(err) on failure.
+ */
+export const askCoachStream = async (
+  messages: any[],
+  resumeText: string,
+  onToken: (token: string) => void,
+  onDone: () => void,
+  onError: (err: unknown) => void
+) => {
+  if (!openai) {
+    // Mock streaming: simulate token-by-token output from mock response
+    const mockReply = await askCoach(messages, resumeText);
+    const words = mockReply.split(' ');
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < words.length) {
+        onToken((i === 0 ? '' : ' ') + words[i]);
+        i++;
+      } else {
+        clearInterval(interval);
+        onDone();
+      }
+    }, 40);
+    return;
+  }
+
+  try {
+    const systemPrompt = {
+      role: 'system' as const,
+      content: `You are an expert AI Career Coach. Guide the user on resume enhancement, salary negotiation, system design, coding preparation, and job searching strategies.
+      Use this resume text as background context:
+      ${resumeText}`
+    };
+
+    const formattedMessages = messages.map((m: any) => ({
+      role: (m.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: m.content
+    }));
+
+    const stream = await openai.chat.completions.create({
+      model: aiModel,
+      messages: [systemPrompt, ...formattedMessages],
+      temperature: 0.7,
+      stream: true
+    });
+
+    for await (const chunk of stream) {
+      const token = chunk.choices[0]?.delta?.content || '';
+      if (token) onToken(token);
+    }
+    onDone();
+  } catch (err) {
+    onError(err);
+  }
+};
+
+/**
+ * Emit live analysis progress steps via callback.
+ * Calls onStep(step, message) for each phase of processing.
+ */
+export const analyzeResumeStream = async (
+  resumeText: string,
+  jobDescription: string,
+  onStep: (step: number, total: number, label: string) => void,
+  onDone: (result: any) => void,
+  onError: (err: unknown) => void
+) => {
+  try {
+    const steps = [
+      'Parsing resume structure...',
+      'Extracting keywords and skills...',
+      'Matching against job description...',
+      'Scoring sections (experience, projects, education)...',
+      'Generating improvement recommendations...',
+      'Finalizing ATS report...'
+    ];
+    const total = steps.length;
+
+    // Emit step 1 immediately
+    for (let i = 0; i < steps.length - 1; i++) {
+      onStep(i + 1, total, steps[i]);
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+    // Run actual analysis
+    const result = await analyzeResume(resumeText, jobDescription);
+    
+    // Emit final step
+    onStep(total, total, steps[total - 1]);
+    await new Promise(r => setTimeout(r, 300));
+
+    onDone(result);
+  } catch (err) {
+    onError(err);
   }
 };

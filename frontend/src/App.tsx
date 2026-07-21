@@ -14,6 +14,7 @@ import { CareerCoach } from './pages/CareerCoach';
 import { PortfolioManager } from './pages/PortfolioManager';
 import { AdminPanel } from './pages/AdminPanel';
 import { Auth } from './pages/Auth';
+import { OAuthCallback } from './pages/OAuthCallback';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, loading } = useAuth();
@@ -48,6 +49,7 @@ export const App: React.FC = () => {
             <Routes>
               {/* Public route */}
               <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback/:provider" element={<OAuthCallback />} />
 
               {/* Protected dashboard endpoints */}
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

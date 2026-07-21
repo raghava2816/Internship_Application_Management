@@ -5,6 +5,13 @@ import Chat from '../models/Chat';
 import Log from '../models/Log';
 import * as aiService from '../services/aiService';
 
+/**
+ * Estimate token count from a string (rough approximation: chars / 4).
+ * Used to log AI usage without calling the actual tokenizer.
+ */
+const estimateTokens = (...texts: string[]): number =>
+  Math.ceil(texts.reduce((sum, t) => sum + (t?.length ?? 0), 0) / 4);
+
 export const generateCoverLetter = async (req: AuthRequest, res: Response) => {
   const { resumeId, company, role, description } = req.body;
   try {
@@ -20,7 +27,12 @@ export const generateCoverLetter = async (req: AuthRequest, res: Response) => {
     }
 
     const coverLetter = await aiService.generateCoverLetter(resumeText, { company, role, description });
-    await Log.create({ ownerId, action: `Generated cover letter for ${company}`, category: 'ai' });
+    await Log.create({
+      ownerId,
+      action: `Generated cover letter for ${company}`,
+      category: 'ai',
+      tokensUsed: estimateTokens(resumeText, description || '', coverLetter),
+    });
 
     res.json({ success: true, coverLetter });
   } catch (error) {
@@ -36,7 +48,13 @@ export const getMockQuestions = async (req: AuthRequest, res: Response) => {
     const resumeText = activeResume?.textContent || '';
 
     const questions = await aiService.generateMockInterview(role, company, resumeText);
-    await Log.create({ ownerId, action: `Generated mock interview questions for ${company} - ${role}`, category: 'ai' });
+    const questionsText = Array.isArray(questions) ? questions.map((q: any) => q.question || '').join(' ') : '';
+    await Log.create({
+      ownerId,
+      action: `Generated mock interview questions for ${company} - ${role}`,
+      category: 'ai',
+      tokensUsed: estimateTokens(resumeText, role, company, questionsText),
+    });
 
     res.json({ success: true, questions });
   } catch (error) {
@@ -50,7 +68,12 @@ export const gradeUserAnswer = async (req: AuthRequest, res: Response) => {
     const ownerId = req.user?.id;
     const result = await aiService.gradeAnswer(question, answer);
     
-    await Log.create({ ownerId, action: `Graded mock interview response`, category: 'ai' });
+    await Log.create({
+      ownerId,
+      action: `Graded mock interview response`,
+      category: 'ai',
+      tokensUsed: estimateTokens(question, answer, result?.feedback || ''),
+    });
     res.json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to evaluate answer' });
@@ -89,6 +112,14 @@ export const talkToCoach = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const allMsgText = messages.map((m: any) => m.content || '').join(' ');
+    await Log.create({
+      ownerId,
+      action: `AI coach conversation`,
+      category: 'ai',
+      tokensUsed: estimateTokens(resumeText, allMsgText, coachResponse),
+    });
+
     res.json({ success: true, data: chat, responseText: coachResponse });
   } catch (error) {
     // Fallback mode if DB fails
@@ -113,7 +144,12 @@ export const rewriteResumeText = async (req: AuthRequest, res: Response) => {
   try {
     const ownerId = req.user?.id;
     const result = await aiService.rewriteResumeSection(section, text, style);
-    await Log.create({ ownerId, action: `Rewrote resume section: ${section}`, category: 'ai' });
+    await Log.create({
+      ownerId,
+      action: `Rewrote resume section: ${section}`,
+      category: 'ai',
+      tokensUsed: estimateTokens(text, result?.rewritten || ''),
+    });
     res.json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to rewrite text' });
@@ -127,9 +163,16 @@ export const getJobRecommendations = async (req: AuthRequest, res: Response) => 
     const resumeText = activeResume?.textContent || '';
     const skills = activeResume?.atsReport?.missingKeywords || [];
 
-    const recommendations = aiService.recommendJobs(resumeText, skills);
+    const recommendations = await aiService.recommendJobs(resumeText, skills);
+    await Log.create({
+      ownerId,
+      action: `Generated job recommendations`,
+      category: 'ai',
+      tokensUsed: estimateTokens(resumeText, JSON.stringify(recommendations)),
+    });
     res.json({ success: true, data: recommendations });
   } catch (error) {
+    console.error("Recommendations error:", error);
     res.status(500).json({ success: false, message: 'Failed to recommend jobs' });
   }
 };
@@ -138,6 +181,12 @@ export const getLinkedInTemplates = async (req: AuthRequest, res: Response) => {
   const { type, company, role, recruiter } = req.body;
   try {
     const message = aiService.generateLinkedInMessage(type, company, role, recruiter);
+    await Log.create({
+      ownerId: req.user?.id,
+      action: `Generated LinkedIn ${type} template for ${company}`,
+      category: 'ai',
+      tokensUsed: estimateTokens(message),
+    });
     res.json({ success: true, message });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to generate outreach template' });
