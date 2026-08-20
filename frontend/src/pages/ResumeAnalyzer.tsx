@@ -396,51 +396,41 @@ export const ResumeAnalyzer: React.FC = () => {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-border dark:border-white/5 gap-6 overflow-x-auto pb-px">
+      <div className="flex bg-secondary/30 p-1.5 rounded-2xl gap-2 overflow-x-auto border border-border/40 shadow-sm backdrop-blur-sm relative z-10 w-fit max-w-full">
         <button
           onClick={() => setActiveTab('audit')}
-          className={`pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${activeTab === 'audit' ? 'border-primary text-foreground' : 'border-transparent text-slate-400 hover:text-foreground'}`}
+          className={`px-4 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'audit' ? 'bg-background shadow-sm text-foreground scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
         >
-          <div className="flex items-center gap-1.5">
-            <ClipboardCheck className="h-4.5 w-4.5" />
-            <span>Detailed ATS Report</span>
-          </div>
+          <ClipboardCheck className={`h-4.5 w-4.5 ${activeTab === 'audit' ? 'text-primary' : ''}`} />
+          <span>Detailed ATS Report</span>
         </button>
         <button
           onClick={() => setActiveTab('versions')}
-          className={`pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${activeTab === 'versions' ? 'border-primary text-foreground' : 'border-transparent text-slate-400 hover:text-foreground'}`}
+          className={`px-4 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'versions' ? 'bg-background shadow-sm text-foreground scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
         >
-          <div className="flex items-center gap-1.5">
-            <Layers className="h-4.5 w-4.5" />
-            <span>Version Improvement Tracker</span>
-          </div>
+          <Layers className={`h-4.5 w-4.5 ${activeTab === 'versions' ? 'text-primary' : ''}`} />
+          <span>Version Tracker</span>
         </button>
         <button
           onClick={() => setActiveTab('rewriter')}
-          className={`pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${activeTab === 'rewriter' ? 'border-primary text-foreground' : 'border-transparent text-slate-400 hover:text-foreground'}`}
+          className={`px-4 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'rewriter' ? 'bg-background shadow-sm text-foreground scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
         >
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="h-4.5 w-4.5" />
-            <span>STAR Rewriter</span>
-          </div>
+          <Sparkles className={`h-4.5 w-4.5 ${activeTab === 'rewriter' ? 'text-primary' : ''}`} />
+          <span>STAR Rewriter</span>
         </button>
         <button
           onClick={() => setActiveTab('cover_letter')}
-          className={`pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${activeTab === 'cover_letter' ? 'border-primary text-foreground' : 'border-transparent text-slate-400 hover:text-foreground'}`}
+          className={`px-4 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'cover_letter' ? 'bg-background shadow-sm text-foreground scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
         >
-          <div className="flex items-center gap-1.5">
-            <FileCheck className="h-4.5 w-4.5" />
-            <span>Cover Letter</span>
-          </div>
+          <FileCheck className={`h-4.5 w-4.5 ${activeTab === 'cover_letter' ? 'text-primary' : ''}`} />
+          <span>Cover Letter</span>
         </button>
         <button
           onClick={() => setActiveTab('linkedin')}
-          className={`pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${activeTab === 'linkedin' ? 'border-primary text-foreground' : 'border-transparent text-slate-400 hover:text-foreground'}`}
+          className={`px-4 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'linkedin' ? 'bg-background shadow-sm text-foreground scale-[1.02]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
         >
-          <div className="flex items-center gap-1.5">
-            <Linkedin className="h-4.5 w-4.5" />
-            <span>LinkedIn Assist</span>
-          </div>
+          <Linkedin className={`h-4.5 w-4.5 ${activeTab === 'linkedin' ? 'text-primary' : ''}`} />
+          <span>LinkedIn Assist</span>
         </button>
       </div>
 
@@ -811,13 +801,13 @@ export const ResumeAnalyzer: React.FC = () => {
                           
                           // Determine color class
                           let barColor = 'bg-rose-500';
-                          let badgeBg = 'bg-rose-500/10 text-rose-500';
+                          let badgeBg = 'bg-rose-500/10 text-rose-700 dark:text-rose-400';
                           if (score >= 80) {
                             barColor = 'bg-emerald-500';
-                            badgeBg = 'bg-emerald-500/10 text-emerald-500';
+                            badgeBg = 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
                           } else if (score >= 60) {
                             barColor = 'bg-amber-500';
-                            badgeBg = 'bg-amber-500/10 text-amber-500';
+                            badgeBg = 'bg-amber-500/10 text-amber-700 dark:text-amber-400';
                           }
 
                           return (
@@ -1053,7 +1043,7 @@ export const ResumeAnalyzer: React.FC = () => {
                                   {item.action}
                                 </p>
                                 <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full mt-1.5 inline-block
-                                  ${item.priority === 'High' ? 'bg-red-500/10 text-red-500' : item.priority === 'Medium' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}
+                                  ${item.priority === 'High' ? 'bg-red-500/10 text-red-700 dark:text-red-400' : item.priority === 'Medium' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'}
                                 `}>
                                   {item.priority} priority
                                 </span>
@@ -1436,7 +1426,7 @@ export const ResumeAnalyzer: React.FC = () => {
       {/* Interactive Modal */}
       {modalDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg overflow-hidden border border-border dark:border-white/10 rounded-2xl bg-background shadow-2xl animate-in scale-in duration-200">
+          <div className="w-full max-w-lg overflow-hidden border border-border dark:border-white/10 rounded-2xl bg-white dark:bg-slate-900 shadow-2xl animate-in scale-in duration-200">
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-border dark:border-white/5 pb-3">
                 <h3 className="font-extrabold text-lg text-foreground">{modalDetails.title}</h3>
@@ -1454,8 +1444,8 @@ export const ResumeAnalyzer: React.FC = () => {
                     <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Rating:</span>
                     <div className="flex items-center gap-2">
                       <span className="font-extrabold text-base text-foreground">{modalDetails.score}/100</span>
-                      <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full tracking-wider
-                        ${modalDetails.score >= 80 ? 'bg-emerald-500/10 text-emerald-500' : modalDetails.score >= 60 ? 'bg-amber-500/10 text-amber-500' : 'bg-red-500/10 text-red-500'}
+                      <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full tracking-wider text-white
+                        ${modalDetails.score >= 80 ? 'bg-emerald-500' : modalDetails.score >= 60 ? 'bg-amber-500' : 'bg-red-500'}
                       `}>
                         {modalDetails.status}
                       </span>
@@ -1466,8 +1456,8 @@ export const ResumeAnalyzer: React.FC = () => {
                 {modalDetails.score === undefined && modalDetails.status && (
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Status:</span>
-                    <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full tracking-wider
-                      ${modalDetails.status.toLowerCase().includes('high') || modalDetails.status.toLowerCase().includes('missing') ? 'bg-red-500/10 text-red-500' : modalDetails.status.toLowerCase().includes('medium') || modalDetails.status.toLowerCase().includes('only') ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}
+                    <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full tracking-wider text-white
+                      ${modalDetails.status.toLowerCase().includes('high') || modalDetails.status.toLowerCase().includes('missing') ? 'bg-red-500' : modalDetails.status.toLowerCase().includes('medium') || modalDetails.status.toLowerCase().includes('only') ? 'bg-amber-500' : 'bg-emerald-500'}
                     `}>
                       {modalDetails.status}
                     </span>
@@ -1475,16 +1465,16 @@ export const ResumeAnalyzer: React.FC = () => {
                 )}
                 
                 <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">AI Evaluation:</span>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-semibold">
+                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-wider block">AI Evaluation:</span>
+                  <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-semibold">
                     {modalDetails.explanation}
                   </p>
                 </div>
                 
                 {modalDetails.example && (
-                  <div className="space-y-1.5 p-3.5 rounded-xl border border-primary/20 bg-primary/5 dark:border-white/5">
-                    <span className="text-[10px] font-bold text-primary uppercase tracking-wider block">Actionable Rewrite Example:</span>
-                    <p className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 whitespace-pre-wrap leading-relaxed">
+                  <div className="space-y-1.5 p-3.5 rounded-xl bg-slate-900 dark:bg-slate-800 shadow-inner">
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Actionable Rewrite Example:</span>
+                    <p className="text-xs font-mono font-bold text-slate-100 whitespace-pre-wrap leading-relaxed">
                       {modalDetails.example}
                     </p>
                   </div>

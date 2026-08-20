@@ -64,6 +64,6 @@ app.get('/', (req, res) => {
 app.use(errorHandler);
 
 // Start Server
-app.listen(PORT, () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`🚀 API Server running in production-ready mode on port ${PORT}`);
 });

@@ -13,313 +13,11 @@ const openai = aiKey ? new OpenAI({ apiKey: aiKey, baseURL: aiBaseUrl }) : null;
 
 // Mock Response Generators when API Key is missing or fails
 // Mock Response Generators when API Key is missing or fails
-export const getMockATSAnalysis = (resumeText: string = '', jobDescription: string = '') => {
-  const lowerText = resumeText.toLowerCase();
-  const lowerJD = jobDescription.toLowerCase();
-
-  const skillsList = [
-    'React', 'TypeScript', 'JavaScript', 'Node.js', 'Express', 'MongoDB', 'PostgreSQL', 
-    'Python', 'Django', 'Flask', 'Java', 'Spring', 'C++', 'Go', 'Docker', 'Kubernetes', 
-    'AWS', 'CI/CD', 'Jest', 'Git', 'HTML', 'CSS', 'TailwindCSS', 'Redux', 'SQL', 'NoSQL',
-    'Angular', 'Vue', 'Next.js', 'NestJS', 'GraphQL', 'RESTful', 'FastAPI', 'Rust', 'Ruby', 
-    'Rails', 'PHP', 'Laravel', 'C#', 'ASP.NET', 'MySQL', 'Redis', 'Cassandra', 'DynamoDB', 
-    'Terraform', 'GCP', 'Azure', 'Jenkins', 'GitHub Actions', 'Cypress', 
-    'Playwright', 'Jira', 'Agile', 'Scrum', 'Figma', 'Webpack', 'Vite', 'Zustand', 'Prisma'
-  ];
-
-  // 1. Candidate Info Extraction
-  let candidateName = 'Applicant';
-  const lines = resumeText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  
-  const nameLine = lines.find(l => l.toUpperCase().startsWith('NAME:'));
-  if (nameLine) {
-    candidateName = nameLine.replace(/NAME:/i, '').trim();
-  } else if (lines.length > 0) {
-    const firstLine = lines[0];
-    if (firstLine.length < 40 && /^[A-Z][a-zA-Z]*(\s+[A-Z][a-zA-Z]*)+$/.test(firstLine)) {
-      candidateName = firstLine;
-    }
-  }
-
-  // 2. Contact Information Audit
-  const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(resumeText);
-  const hasPhone = /\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}/.test(resumeText);
-  const hasLinkedIn = /linkedin\.com\/in\/[a-zA-Z0-9_-]+/i.test(resumeText);
-  const hasGitHub = /github\.com\/[a-zA-Z0-9_-]+/i.test(resumeText);
-
-  // 3. Section Heading Audit
-  const sections = {
-    experience: /experience|work\s+history|employment|professional\s+background/i.test(resumeText),
-    education: /education|academic/i.test(resumeText),
-    projects: /projects|personal\s+projects|academic\s+projects/i.test(resumeText),
-    skills: /skills|technical\s+skills|core\s+competencies|technologies/i.test(resumeText),
-    certifications: /certifications|certificates|courses/i.test(resumeText)
-  };
-
-  // 4. Quantifiable Impact Audit (Google XYZ Formula)
-  const sentences = resumeText.split(/[.!?\n]/).map(s => s.trim()).filter(s => s.length > 10);
-  let sentencesWithMetrics = 0;
-  sentences.forEach(s => {
-    const hasPercent = s.includes('%');
-    const hasNumbers = /\b\d+(?:\.\d+)?\b/.test(s);
-    const hasKeywords = /saved|reduced|increased|improved|optimized|accelerated|delivered|led/i.test(s);
-    if ((hasPercent || hasNumbers) && hasKeywords) {
-      sentencesWithMetrics++;
-    }
-  });
-
-  const metricRatio = sentences.length > 0 ? sentencesWithMetrics / sentences.length : 0;
-
-  // 5. Keyword Density & Matching
-  const foundSkills = skillsList.filter(skill => lowerText.includes(skill.toLowerCase()));
-  if (foundSkills.length === 0) {
-    foundSkills.push('React.js', 'Node.js', 'Express', 'TypeScript', 'JavaScript', 'Tailwind CSS', 'Git', 'Java', 'Full-stack', 'Responsive UI', 'DSA');
-  }
-
-  const jdSkills = skillsList.filter(skill => lowerJD.includes(skill.toLowerCase()));
-  const missingKeywords = jdSkills.length > 0 ? jdSkills.filter(skill => !foundSkills.includes(skill)) : ['Next.js', 'Redux', 'Docker', 'CI/CD', 'Agile / Scrum', 'Unit testing', 'GraphQL', 'AWS services', 'Linux / Bash'];
-
-  // 6. Detailed Scoring Algorithms
-  let keywordScore = 70;
-  if (jdSkills.length > 0) {
-    const matchedCount = jdSkills.filter(s => foundSkills.includes(s)).length;
-    keywordScore = Math.floor((matchedCount / jdSkills.length) * 40) + 60;
-  } else {
-    // General keyword density
-    keywordScore = Math.min(65 + foundSkills.length * 2, 95);
-  }
-
-  let formattingScore = 100;
-  const redFlags: string[] = [];
-  const improvements = [];
-
-  if (!hasEmail) {
-    formattingScore -= 10;
-    redFlags.push('Missing email contact information');
-    improvements.push({ action: 'Add a professional email address to the header.', done: false, priority: 'High' as const });
-  }
-  if (!hasPhone) {
-    formattingScore -= 10;
-    redFlags.push('Missing phone contact information');
-    improvements.push({ action: 'Add a valid telephone contact number to the header.', done: false, priority: 'High' as const });
-  }
-  if (!hasLinkedIn) {
-    formattingScore -= 5;
-    improvements.push({ action: 'Include your LinkedIn profile link to improve recruiter outreach.', done: false, priority: 'Medium' as const });
-  }
-  if (!hasGitHub) {
-    formattingScore -= 5;
-    improvements.push({ action: 'Include your GitHub profile link to showcase code repositories.', done: false, priority: 'Medium' as const });
-  }
-
-  let grammarScore = 95;
-  if (resumeText.includes(' etc') || resumeText.includes('...') || resumeText.includes('stuff')) {
-    grammarScore -= 10;
-    redFlags.push('Contains informal placeholders (e.g., etc., ..., stuff)');
-    improvements.push({ action: 'Remove informal phrases and replace with specific technical lists.', done: false, priority: 'Medium' as const });
-  }
-
-  let experienceScore = sections.experience ? 85 : 50;
-  let projectsScore = sections.projects ? 85 : 55;
-  let skillsScore = sections.skills ? 90 : 60;
-  let educationScore = sections.education ? 90 : 60;
-
-  if (!sections.experience) {
-    redFlags.push('Missing Experience/Employment section');
-    improvements.push({ action: 'Add a dedicated Professional Experience section detailing past roles.', done: false, priority: 'High' as const });
-  }
-  if (!sections.projects) {
-    improvements.push({ action: 'Add a Projects section to highlight relevant technical builds.', done: false, priority: 'Medium' as const });
-  }
-  if (!sections.skills) {
-    improvements.push({ action: 'Add a structured Technical Skills section for better ATS parsing.', done: false, priority: 'High' as const });
-  }
-
-  let impactScore = Math.floor(metricRatio * 80) + 40;
-  if (metricRatio < 0.2) {
-    improvements.push({
-      action: "Quantify your achievements following Google's XYZ formula: 'Accomplished [X], measured by [Y], by doing [Z]' (e.g., 'Reduced load time by 30%').",
-      done: false,
-      priority: 'High' as const
-    });
-  }
-
-  const overallScore = Math.floor(
-    (keywordScore * 0.3) + 
-    (formattingScore * 0.15) + 
-    (grammarScore * 0.1) + 
-    (experienceScore * 0.15) + 
-    (projectsScore * 0.1) + 
-    (skillsScore * 0.1) + 
-    (impactScore * 0.1)
-  );
-
-  const strengths = [];
-  if (foundSkills.length >= 8) strengths.push(`Strong core tech stack coverage with ${foundSkills.length} matching skills.`);
-  if (hasLinkedIn && hasGitHub) strengths.push('Complete social links provided (LinkedIn and GitHub).');
-  if (sections.experience && sections.education) strengths.push('Standard, logical section layout with proper headings.');
-  if (metricRatio >= 0.25) strengths.push('Excellent usage of quantifiable metrics to demonstrate contribution scale.');
-
-  if (strengths.length === 0) {
-    strengths.push('Valid layout layout with clean single-column structure.');
-  }
-
-  const weaknesses = [];
-  if (missingKeywords.length > 0) {
-    weaknesses.push(`Missing alignment for role-critical keywords: ${missingKeywords.slice(0, 3).join(', ')}.`);
-  }
-  if (metricRatio < 0.15) {
-    weaknesses.push('Description bullets lack numeric metrics or quantified business impact.');
-  }
-  if (!hasLinkedIn || !hasGitHub) {
-    weaknesses.push('Missing links to live work samples or professional networks.');
-  }
-
-  if (weaknesses.length === 0) {
-    weaknesses.push('Could expand on containerized configurations or cloud integrations.');
-  }
-
-  let summary = `Candidate ${candidateName} shows an overall match score of ${overallScore}%. `;
-  if (missingKeywords.length > 0) {
-    summary += `To increase your score, consider adding missing skills: ${missingKeywords.slice(0, 4).join(', ')}. `;
-  } else {
-    summary += 'The keywords match the job description very closely. ';
-  }
-  if (metricRatio < 0.2) {
-    summary += 'Focus on incorporating more quantifiable results and metric formulas in your project bullets.';
-  }
-
-  // Count active sections in mock
-  let sectionsCount = 4; // education, experience, projects, skills are basic
-  if (hasEmail && hasPhone) sectionsCount++; // contact info section count as present
-  if (sections.certifications) sectionsCount++;
-  
-  return {
-    score: overallScore,
-    keywordScore,
-    formattingScore,
-    grammarScore,
-    experienceScore,
-    projectsScore,
-    skillsScore,
-    educationScore,
-    leadershipScore: 75,
-    impactScore,
-    summary,
-    strengths,
-    weaknesses,
-    recruiterPerspective: `The resume shows technical familiarity with ${foundSkills.slice(0, 3).join(', ')}. A recruiter will notice the missing contact details or quantified impact metrics if they are not updated.`,
-    atsCompatibility: formattingScore > 85 ? 'Highly compatible structure. Fully parseable headers.' : 'Minor formatting issues detected. Fix missing sections.',
-    missingKeywords,
-    improvements,
-    redFlags,
-    
-    // New Detailed Fields for matching screenshots
-    keywordsMatchedCount: foundSkills.length,
-    keywordsMissingCount: missingKeywords.length,
-    quantifiedBulletsCount: sentencesWithMetrics > 0 ? sentencesWithMetrics : 6,
-    sectionsPresentCount: sectionsCount,
-    sectionsTotalCount: 9,
-    foundKeywords: foundSkills,
-    sections: {
-      contact: {
-        score: hasPhone ? 95 : 70,
-        status: hasPhone ? 'Complete' : 'Missing phone number',
-        explanation: 'Contact section contains email and social profiles but lacks a telephone number. Many recruiters search for contact info first, and automated dialers require active digits.',
-        example: 'Add: "+1 (555) 019-2834" directly in your header adjacent to the email address.'
-      },
-      experience: {
-        score: sections.experience ? 75 : 50,
-        status: sections.experience ? 'Only 1 internship' : 'Missing section',
-        explanation: 'There is only one internship listed under work history. A robust engineering resume should demonstrate continuous workspace collaboration or progressive projects.',
-        example: 'Create entries for junior engineering tasks or frame academic project leadership as "Engineering Lead" roles.'
-      },
-      quantification: {
-        score: sentencesWithMetrics > 3 ? 90 : 65,
-        status: sentencesWithMetrics > 3 ? 'Good metrics' : 'Needs more metrics',
-        explanation: 'Most descriptions focus on basic tasks (e.g. "built websites") rather than performance scale, load efficiency, or team capacity changes.',
-        example: 'Change: "Built a react application" to "Designed frontend views in React, reducing page render times by 32% and enhancing Web Vitals."'
-      },
-      skills: {
-        score: foundSkills.length > 8 ? 85 : 70,
-        status: foundSkills.length > 8 ? 'Good stack' : 'Good but incomplete',
-        explanation: 'Core stack keywords like Next.js, Redux, and Docker are missing. Modern SaaS stacks expect solid configuration and containerization familiarity.',
-        example: 'Include: "Next.js, Redux State Management, Docker, CI/CD pipelines" in your Technical Skills layout.'
-      },
-      education: {
-        score: sections.education ? 88 : 60,
-        status: sections.education ? 'Strong CGPA listed' : 'Details incomplete',
-        explanation: 'Education section is complete and well-structured, clearly showing your B.Tech in IT and impressive 8.68 CGPA.',
-        example: 'Include coursework relevant to target positions (e.g., Database Systems, Distributed Algorithms) to show theoretical baseline.'
-      },
-      projects: {
-        score: sections.projects ? 68 : 55,
-        status: sections.projects ? 'Lacks impact metrics' : 'Missing section',
-        explanation: 'You listed multiple projects but they read like tutorial templates. They lack metrics about latency, database concurrency, or user counts.',
-        example: 'Rewrite: "Created a student locator app" to "Engineered student locator using WebSocket triggers; processed 120 concurrent location pings/sec."'
-      },
-      certifications: {
-        score: sections.certifications ? 82 : 45,
-        status: sections.certifications ? '4 certs listed' : 'No credentials listed',
-        explanation: 'You have listed credentials confirming proactive professional learning and cloud stack familiarity.',
-        example: 'Position certifications immediately below skills or experience, highlighting issues like date of expiration or license identifiers.'
-      },
-      formatting: {
-        score: formattingScore,
-        status: formattingScore > 85 ? 'Clean single-column' : 'Complex two-column layout',
-        explanation: 'Formatting follows a highly readable single-column design. Margins are consistent, and headers are standardized, making it perfect for ATS parsing.',
-        example: 'Keep font sizes between 10pt and 12pt for bullet content, and use standard uppercase headings.'
-      },
-      summary: {
-        score: 55,
-        status: 'Too generic',
-        explanation: 'Objective/Summary statement uses standard boilerplate sentences like "Seeking a challenging opportunity". It lacks specialized core stack summaries or target roles.',
-        example: 'Rewrite to: "React/TypeScript developer with 2+ years building low-latency SPAs and database API routes. Seeking full-stack engineering roles."'
-      }
-    }
-  };
-};
-
-
-const getMockInterviewQuestions = (role: string = 'Software Engineer', company: string = 'TechCorp') => {
-  return [
-    {
-      question: `Can you explain how React's virtual DOM works and how React 19 introduces Server Components?`,
-      category: 'Technical'
-    },
-    {
-      question: `Describe a time when you disagreed with a senior engineer or product manager on a technical design choice. How did you resolve it?`,
-      category: 'Behavioral'
-    },
-    {
-      question: `Why do you want to join ${company} as a ${role}, and what do you expect from our engineering culture?`,
-      category: 'HR'
-    },
-    {
-      question: `Implement a function in TypeScript that takes an array of integers and returns the length of the longest consecutive elements sequence. What is the time complexity?`,
-      category: 'Coding'
-    },
-    {
-      question: `Design an rate-limiting system for a highly-scalable global web service (like Stripe). Explain how you would prevent DDoS attacks and manage client tokens.`,
-      category: 'System Design'
-    }
-  ];
-};
-
-const getMockInterviewGrade = (question: string, answer: string) => {
-  const baseScore = Math.floor(Math.random() * 25) + 65; // 65 to 90
-  return {
-    score: baseScore,
-    confidenceScore: Math.floor(Math.random() * 30) + 60,
-    feedback: `The response hits key technical concepts, showing basic familiarity. However, you could structure your explanation better. For instance, in coding questions, explicitly mention space complexity and edge cases (empty inputs, negative bounds).`,
-    improvements: `Try using the STAR framework (Situation, Task, Action, Result) for behavioral answers. Highlight the exact technology, bottleneck, and target speed or conversion improvements.`
-  };
-};
+// Mock data generators removed for strict real-time enforcement
 
 export const analyzeResume = async (resumeText: string, jobDescription: string) => {
   if (!openai) {
-    console.log('🤖 AI Service: Running in local mockup mode (No API Key).');
-    return getMockATSAnalysis(resumeText, jobDescription);
+    throw new Error('AI Service is not configured. Missing API Key.');
   }
 
   try {
@@ -387,18 +85,15 @@ export const analyzeResume = async (resumeText: string, jobDescription: string) 
 
     const content = response.choices[0].message.content;
     return JSON.parse(content || '{}');
-  } catch (error) {
-    console.error('❌ AI Analysis API failed, falling back to mock:', error);
-    return getMockATSAnalysis(resumeText, jobDescription);
+  } catch (error: any) {
+    console.error('❌ AI Analysis API failed:', error);
+    throw new Error('AI Service failed to analyze resume: ' + (error?.message || 'Unknown error'));
   }
 };
 
 export const rewriteResumeSection = async (section: string, text: string, style: string = 'STAR') => {
   if (!openai) {
-    return {
-      rewrittenText: `[Enhanced using ${style} Formula]:\n• Managed migration of custom legacy build tools to standard Vite setup, reducing page bundle sizes by 42% and shortening local build startup times from 15 seconds to 1.8 seconds.\n• Leveraged TypeScript strict modes to eliminate runtime null-pointer exceptions, resulting in an estimated 15% reduction in production crash logs over a 6-month cycle.`,
-      originalText: text
-    };
+    throw new Error('AI Service is not configured. Missing API Key.');
   }
 
   try {
@@ -427,28 +122,14 @@ export const rewriteResumeSection = async (section: string, text: string, style:
     });
 
     return JSON.parse(response.choices[0].message.content || '{}');
-  } catch (error) {
-    return {
-      rewrittenText: `[Enhanced using ${style} Formula - Fallback]:\n• Accomplished 30% latency reduction in main API database routes by creating composite Indexes in MongoDB and caching heavy configurations on Redis.`,
-      originalText: text
-    };
+  } catch (error: any) {
+    throw new Error('AI Service failed to rewrite section: ' + (error?.message || 'Unknown error'));
   }
 };
 
 export const generateCoverLetter = async (resumeText: string, jobDetails: { company: string; role: string; description?: string }) => {
   if (!openai) {
-    return `Dear Hiring Manager,
-
-I am writing to express my enthusiastic interest in the ${jobDetails.role} position at ${jobDetails.company}. With a solid foundation in building reactive interfaces using React, automating server pipelines with Node.js, and scaling data schemas across MongoDB, my technical qualifications align closely with the engineering goals of your team.
-
-Throughout my software engineering experience, I have prioritized modular code architectures and type-safety in TypeScript, which has consistently accelerated deployment cycles. At my previous projects, I led the transition toward automated system tests, resulting in a cleaner development cycle and fewer user regressions.
-
-I am particularly excited to join ${jobDetails.company} because of your commitment to technical innovation and developer productivity. I welcome the opportunity to discuss how my skill set in full-stack architecture and automated tracking systems can contribute to your core platforms.
-
-Thank you for your time and consideration.
-
-Sincerely,
-[Your Name]`;
+    throw new Error('AI Service is not configured. Missing API Key.');
   }
 
   try {
@@ -473,14 +154,14 @@ Sincerely,
     });
 
     return response.choices[0].message.content || '';
-  } catch (error) {
-    return `Dear Hiring Team at ${jobDetails.company},\n\nI am writing to apply for the position of ${jobDetails.role}...`;
+  } catch (error: any) {
+    throw new Error('AI Service failed to generate cover letter: ' + (error?.message || 'Unknown error'));
   }
 };
 
 export const generateMockInterview = async (role: string, company: string, resumeText: string) => {
   if (!openai) {
-    return getMockInterviewQuestions(role, company);
+    throw new Error('AI Service is not configured. Missing API Key.');
   }
 
   try {
@@ -507,14 +188,14 @@ export const generateMockInterview = async (role: string, company: string, resum
 
     const cleanContent = response.choices[0].message.content || '[]';
     return JSON.parse(cleanContent.trim());
-  } catch (error) {
-    return getMockInterviewQuestions(role, company);
+  } catch (error: any) {
+    throw new Error('AI Service failed to generate mock interview: ' + (error?.message || 'Unknown error'));
   }
 };
 
 export const gradeAnswer = async (question: string, userAnswer: string) => {
   if (!openai) {
-    return getMockInterviewGrade(question, userAnswer);
+    throw new Error('AI Service is not configured. Missing API Key.');
   }
 
   try {
@@ -545,35 +226,14 @@ export const gradeAnswer = async (question: string, userAnswer: string) => {
     });
 
     return JSON.parse(response.choices[0].message.content || '{}');
-  } catch (error) {
-    return getMockInterviewGrade(question, userAnswer);
+  } catch (error: any) {
+    throw new Error('AI Service failed to grade answer: ' + (error?.message || 'Unknown error'));
   }
 };
 
 export const askCoach = async (messages: any[], resumeText: string) => {
   if (!openai) {
-    const lastMessage = messages[messages.length - 1]?.content.toLowerCase() || '';
-    let response = "I'm here as your AI Career Coach. Tell me about your target job search, or upload a resume to start reviewing code structures!";
-
-    // Simple natural conversation parser
-    if (lastMessage.match(/\b(hi|hello|hey|greetings|yo)\b/)) {
-      response = "Hello! 👋 I'm your AI Career Coach. How is your job search going today? Feel free to ask me anything about resume reviews, interview prep, salary negotiation, or job matching!";
-    } else if (lastMessage.includes('salary') || lastMessage.includes('negotiat') || lastMessage.includes('offer')) {
-      response = "When negotiating a salary offer, keep these rules in mind:\n\n1. **Never state a number first** if possible—ask for their budget range.\n2. **Base requests on market data** (e.g. Levels.fyi, Glassdoor) for your specific experience and location.\n3. **Evaluate the whole package**: look at base salary, equity/stock options, sign-on bonuses, remote work flexibility, and benefits.\n\nWould you like me to draft a salary counter-offer message for you?";
-    } else if (lastMessage.includes('resume') || lastMessage.includes('ats') || lastMessage.includes('score')) {
-      response = "To optimize your resume for ATS parsers, you should:\n\n• **Use a single-column layout**—avoid two columns, sidebars, or complex layouts which confuse ATS parsers.\n• **Ditch visual indicators** like skill progress bars, graphics, or tables.\n• **Incorporate direct keywords** from the target Job Description.\n• **Quantify your impact** using Google's XYZ formula: *'Accomplished [X] as measured by [Y], by doing [Z]'*.\n\nDo you want me to review or rewrite a specific bullet point from your resume?";
-    } else if (lastMessage.includes('interview') || lastMessage.includes('prep') || lastMessage.includes('question')) {
-      response = "Preparing for a technical round involves three core pillars:\n\n- **Data Structures & Algorithms**: Focus on sliding windows, hash maps, DFS/BFS traversals, and basic sorting.\n- **System Design**: Understand microservices, API gateways, load balancing, caching (Redis), and DB replication.\n- **Behavioral Questions**: Practice standard scenarios using the STAR framework (Situation, Task, Action, Result).\n\nIf you want, we can start a mock interview practice round right here. Just say: *'Start mock interview'*!";
-    } else if (lastMessage.includes('portfolio') || lastMessage.includes('github') || lastMessage.includes('git')) {
-      response = "To build a stand-out developer portfolio:\n\n1. **README quality**: Ensure your repositories have clear setup instructions, architecture diagrams, and links to live demos.\n2. **Tests**: Projects with actual test suites (Jest, Cypress, etc.) prove you write production-ready code.\n3. **Clean Code**: Follow consistent style guides and modular code structures.\n\nWould you like me to explain how to audit your GitHub repositories?";
-    } else if (lastMessage.match(/\b(thanks|thank you|awesome|great|cool)\b/)) {
-      response = "You're very welcome! I'm dedicated to helping you secure your target engineering offer. What other career topics or preparation challenges can we work on together?";
-    } else if (lastMessage.match(/\b(help|options|capabilities|what can you do)\b/)) {
-      response = "I can guide you through the entire application process! We can work on:\n\n1. **Resume Audit & ATS scoring**\n2. **STAR/XYZ resume bullet point rewriting**\n3. **System Design & Coding prep**\n4. **Salary negotiation strategies**\n\nWhat would you like to focus on first?";
-    } else {
-      response = `That's a great point! Exploring those career paths is highly rewarding. \n\nTo help you best, could you tell me what specific software engineering roles (e.g. Frontend, Backend, Full Stack) you are targeting, or if there is a particular company you're prepping for?`;
-    }
-    return response;
+    throw new Error('AI Service is not configured. Missing API Key.');
   }
 
   try {
@@ -596,9 +256,9 @@ export const askCoach = async (messages: any[], resumeText: string) => {
     });
 
     return response.choices[0].message.content || '';
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Career Coach completion failed:", error);
-    return "I am currently running in offline backup mode. How can I assist you with career advice?";
+    throw new Error('AI Coach service failed: ' + (error?.message || 'Unknown error'));
   }
 };
 
@@ -1066,19 +726,7 @@ export const askCoachStream = async (
   onError: (err: unknown) => void
 ) => {
   if (!openai) {
-    // Mock streaming: simulate token-by-token output from mock response
-    const mockReply = await askCoach(messages, resumeText);
-    const words = mockReply.split(' ');
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i < words.length) {
-        onToken((i === 0 ? '' : ' ') + words[i]);
-        i++;
-      } else {
-        clearInterval(interval);
-        onDone();
-      }
-    }, 40);
+    onError(new Error('AI Service is not configured. Missing API Key.'));
     return;
   }
 

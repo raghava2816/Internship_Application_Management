@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import User from '../models/User';
 import Log from '../models/Log';
 import { AuthRequest } from '../middleware/authMiddleware';
@@ -74,11 +75,13 @@ export const register = async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     // MongoDB fallback mode
     console.warn('⚠️ Mongoose DB unavailable. Falling back to local Registration simulation.');
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
     const newUser = {
       _id: new Date().getTime().toString(),
       name,
       email,
-      password, // clear text just for demo simulation
+      password: hashedPassword,
       role: 'user',
       skills: [],
       settings: { theme: 'dark', notifications: { email: true, push: true, deadlineReminderDays: 3 } }
@@ -133,7 +136,10 @@ export const login = async (req: AuthRequest, res: Response) => {
     console.warn('⚠️ Mongoose DB unavailable. Checking mock in-memory users.');
     const mock = mockUsers.find(u => u.email === email);
     if (mock) {
-      // In mock mode, we bypass strict bcrypt check if it's password123 or matches
+      const isMatch = await bcrypt.compare(password, mock.password);
+      if (!isMatch) {
+         return res.status(400).json({ success: false, message: 'Invalid credentials' });
+      }
       const token = signToken(mock._id.toString(), mock.role);
       return res.json({
         success: true,

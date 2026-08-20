@@ -10,10 +10,12 @@ export default {
     extend: {
       colors: {
         background: {
+          DEFAULT: 'hsl(var(--background))',
           light: '#F9FAFB',
           dark: '#111827'
         },
         card: {
+          DEFAULT: 'hsl(var(--card))',
           light: '#FFFFFF',
           dark: '#1F2937'
         },

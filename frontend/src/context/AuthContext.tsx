@@ -110,23 +110,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsOfflineMode(false);
       }
     } catch (error: any) {
-      console.warn('⚠️ Could not connect to API server. Operating in offline mock mode.');
-      // Offline mode authenticate
-      setIsOfflineMode(true);
-      if (email === 'admin@tracker.com') {
-        const adminUser = { ...defaultMockUser, id: '660f54b68449c25fbc7e63b2', name: 'Admin Host', role: 'admin', email: 'admin@tracker.com' };
-        localStorage.setItem('token', 'mock_admin_token');
-        localStorage.setItem('mock_user_session', JSON.stringify(adminUser));
-        setToken('mock_admin_token');
-        setUser(adminUser);
-      } else {
-        // Fallback email password login
-        const loggedUser = { ...defaultMockUser, email, name: email.split('@')[0] };
-        localStorage.setItem('token', 'mock_user_token');
-        localStorage.setItem('mock_user_session', JSON.stringify(loggedUser));
-        setToken('mock_user_token');
-        setUser(loggedUser);
-      }
+      console.warn('⚠️ Authentication failed.');
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -143,23 +128,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsOfflineMode(false);
       }
     } catch (error) {
-      console.warn('⚠️ Register failed to hit server. Saving mock state locally.');
-      setIsOfflineMode(true);
-      const newUser: UserType = {
-        id: 'user_' + Math.random().toString(36).substring(2, 9),
-        name,
-        email,
-        role: 'user',
-        skills: [],
-        settings: {
-          theme: 'dark',
-          notifications: { email: true, push: true, deadlineReminderDays: 3 }
-        }
-      };
-      localStorage.setItem('token', 'mock_user_token');
-      localStorage.setItem('mock_user_session', JSON.stringify(newUser));
-      setToken('mock_user_token');
-      setUser(newUser);
+      console.warn('⚠️ Register failed.');
+      throw error;
     } finally {
       setLoading(false);
     }

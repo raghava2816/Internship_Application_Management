@@ -31,7 +31,7 @@ export const Dashboard: React.FC = () => {
   // Metrics computation
   const totalApps = applications.length;
   
-  const resumeScore = activeResume?.atsReport?.score || 72;
+  const resumeScore = activeResume?.atsReport?.score ?? 72;
 
   const interviewRate = React.useMemo(() => {
     if (totalApps === 0) return 0;

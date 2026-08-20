@@ -364,6 +364,15 @@ export const CareerCoach: React.FC = () => {
                     ))}
                   </div>
                 </div>
+                {job.link && (
+                  <div className="pt-2">
+                    <a href={job.link} target="_blank" rel="noopener noreferrer">
+                      <Button className="w-full gradient-primary text-xs font-bold text-white h-8">
+                        Apply Now
+                      </Button>
+                    </a>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
