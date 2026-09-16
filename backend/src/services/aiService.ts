@@ -5,7 +5,7 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
 // Determine active AI Provider (prioritizes Groq if key is present)
 export const useGroq = !!GROQ_API_KEY;
-export const aiModel = useGroq ? 'llama-3.3-70b-versatile' : 'gpt-4o';
+export const aiModel = useGroq ? 'llama3-70b-8192' : 'gpt-4o';
 const aiBaseUrl = useGroq ? 'https://api.groq.com/openai/v1' : undefined;
 const aiKey = useGroq ? GROQ_API_KEY : OPENAI_API_KEY;
 
