@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://careerforge-3sty.onrender.com/api/$1"
+      "destination": "https://careerflow-of69.onrender.com/api/$1"
     },
     {
       "source": "/(.*)",
