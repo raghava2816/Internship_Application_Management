@@ -1,11 +1,11 @@
 {
-  "short_name": "TrackerPro",
-  "name": "AI Internship Tracker Pro",
+  "short_name": "CareerFlow",
+  "name": "CareerFlow",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2005/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>",
+      "src": "/logo.jpg",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/jpeg"
     }
   ],
   "start_url": "/",

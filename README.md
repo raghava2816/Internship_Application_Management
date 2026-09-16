@@ -1,6 +1,6 @@
-# AI Internship Tracker Pro (MERN Stack SaaS)
+# CareerFlow (MERN Stack SaaS)
 
-AI Internship Tracker Pro is a production-grade, commercial-ready SaaS application designed to help candidates organize applications, parse resume ATS structures, practice verbal mock interviews, analyze code repositories, and secure engineering offers. 
+CareerFlow is a production-grade, commercial-ready SaaS application designed to help candidates organize applications, parse resume ATS structures, practice verbal mock interviews, analyze code repositories, and secure engineering offers. 
 
 Out of the box, the platform operates in a **Zero-Setup Mode**: it auto-connects to MongoDB and OpenAI engines if environment keys are active, otherwise falling back to custom simulated local engines (with localStorage persistence) to provide a complete, feature-rich portfolio showcase instantly.
 

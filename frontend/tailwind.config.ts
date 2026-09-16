@@ -20,15 +20,15 @@ export default {
           dark: '#1F2937'
         },
         primary: {
-          DEFAULT: '#10B981', // Emerald
-          hover: '#059669'
+          DEFAULT: '#F97316', // Orange
+          hover: '#EA580C'
         },
         secondary: {
-          DEFAULT: '#6EE7B7', // Mint
-          hover: '#34D399'
+          DEFAULT: '#FB923C', // Lighter Orange
+          hover: '#F97316'
         },
         accent: {
-          DEFAULT: '#22D3EE', // Cyan
+          DEFAULT: '#F43F5E', // Rose
           success: '#10B981', // Emerald
           warning: '#F59E0B', // Amber
           danger: '#EF4444' // Red

@@ -38,7 +38,7 @@ export const mockUsers: any[] = [
     linkedinUrl: 'https://linkedin.com/in/admin',
     githubUrl: 'https://github.com/admin',
     portfolioUrl: 'https://admin.dev',
-    bio: 'System Administrator for AI Internship Tracker Pro.',
+    bio: 'System Administrator for CareerFlow.',
     skills: ['System Design', 'DevOps', 'Kubernetes'],
     settings: {
       theme: 'dark',

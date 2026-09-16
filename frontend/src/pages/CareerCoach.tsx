@@ -43,6 +43,7 @@ export const CareerCoach: React.FC = () => {
   // Recommendations state
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
+  const [aiDisclaimer, setAiDisclaimer] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +63,7 @@ export const CareerCoach: React.FC = () => {
       }
     } catch {
       // Mock recommendations fallback
+      setAiDisclaimer("AI is not responding. Showing fallback mock job recommendations.");
       setTimeout(() => {
         setRecommendations([
           {
@@ -152,12 +154,13 @@ export const CareerCoach: React.FC = () => {
           setIsStreaming(false);
         },
         onError: () => {
-          // Fallback: add error message
+          // Fallback: add error message and mock answer
+          setAiDisclaimer("AI is not responding. Showing fallback mock response.");
           setMessages(prev => [
             ...prev,
             {
               sender: 'assistant',
-              content: accText || 'Sorry, there was a connection issue. Please try again.',
+              content: 'Here is a mock response: To negotiate your salary, always research market rates and emphasize the value you bring to the company. Be confident and prepared to walk away if necessary.',
               timestamp: new Date().toISOString()
             }
           ]);
@@ -183,6 +186,9 @@ export const CareerCoach: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">AI Career Coach</h1>
           <p className="text-muted-foreground text-sm">Consult templates, check matching semantic jobs, and build salary negotiation scripts.</p>
+          {aiDisclaimer && (
+            <p className="text-amber-500 text-xs mt-2 font-semibold">⚠️ Disclaimer: {aiDisclaimer}</p>
+          )}
         </div>
 
         {/* Coach Tabs switch */}
@@ -338,7 +344,7 @@ export const CareerCoach: React.FC = () => {
                     <h3 className="font-bold text-sm tracking-tight">{job.company}</h3>
                     <p className="text-xs text-muted-foreground font-semibold">{job.role}</p>
                   </div>
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 font-extrabold">
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-500 font-extrabold">
                     {job.matchPercentage}% Match
                   </span>
                 </div>

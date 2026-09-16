@@ -1,24 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Target, Mail, Lock, User, Github } from 'lucide-react';
+import { Mail, Lock, User, Github } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Input, Label } from '../components/ui/Input';
 
 export const Auth: React.FC = () => {
-  const { token, login, register, socialLogin, getOAuthConfig, loading } = useAuth();
+  const { token, login, register, getOAuthConfig, loading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-
-  // Social Login Dialog States
-  const [showSocialModal, setShowSocialModal] = useState(false);
-  const [socialProvider, setSocialProvider] = useState<'google' | 'github'>('google');
-  const [socialEmail, setSocialEmail] = useState('');
-  const [socialName, setSocialName] = useState('');
   
   // Real OAuth configuration state
   const [oauthConfig, setOauthConfig] = useState<{ googleClientId: string; githubClientId: string }>({
@@ -57,16 +51,6 @@ export const Auth: React.FC = () => {
     }
   };
 
-  const handleQuickLogin = async (role: 'user' | 'admin') => {
-    setErrorMsg('');
-    const targetEmail = role === 'user' ? 'demo@tracker.com' : 'admin@tracker.com';
-    try {
-      await login(targetEmail, 'password123');
-    } catch (err) {
-      setErrorMsg('Failed to log in with mock parameters.');
-    }
-  };
-
   const triggerSocialLogin = (provider: 'google' | 'github') => {
     // If the backend has real client IDs configured → use the real OAuth redirect
     if (provider === 'google' && oauthConfig.googleClientId) {
@@ -80,26 +64,8 @@ export const Auth: React.FC = () => {
       return;
     }
 
-    // No real credentials configured — open the simulation dialog so reviewers can still test
-    setSocialProvider(provider);
-    setSocialEmail(provider === 'google' ? 'john.google@gmail.com' : 'jane.github@github.com');
-    setSocialName(provider === 'google' ? 'John Google Dev' : 'Jane GitHub Coder');
-    setShowSocialModal(true);
-  };
-
-  const handleSocialSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowSocialModal(false);
-    setErrorMsg('');
-    try {
-      const id = `${socialProvider}_${Math.floor(100000000 + Math.random() * 900000000)}`;
-      const avatarUrl = socialProvider === 'google' 
-        ? 'https://api.dicebear.com/7.x/bottts/svg?seed=google' 
-        : 'https://api.dicebear.com/7.x/identicon/svg?seed=github';
-      await socialLogin(socialProvider, id, socialEmail, socialName, avatarUrl);
-    } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Social authentication failed.');
-    }
+    // No real credentials configured — show error
+    setErrorMsg(`${provider === 'google' ? 'Google' : 'GitHub'} OAuth is not configured for this environment.`);
   };
 
   return (
@@ -113,11 +79,11 @@ export const Auth: React.FC = () => {
       <Card className="w-full max-w-md relative z-10 glass border-white/10 dark:border-white/5 shadow-2xl">
         <CardHeader className="text-center pb-4">
           <div className="flex justify-center mb-2">
-            <div className="h-10 w-10 rounded-xl gradient-primary text-white flex items-center justify-center shadow-lg">
-              <Target className="h-6 w-6" />
+            <div className="h-10 w-10 rounded-xl overflow-hidden shadow-lg">
+              <img src="/logo.jpg" alt="CareerFlow Logo" className="h-full w-full object-cover" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight gradient-text">AI Internship Tracker Pro</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight gradient-text">CareerFlow</CardTitle>
           <CardDescription className="text-xs">Your unified dashboard for applications tracking, resume edits, and speech interview preps.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -206,101 +172,8 @@ export const Auth: React.FC = () => {
               {isLogin ? "Don't have an account? Sign Up" : 'Already registered? Sign In'}
             </button>
           </div>
-
-          {/* Portfolio quick bypass buttons */}
-          <div className="mt-6 pt-4 border-t border-border dark:border-white/5 flex flex-col gap-2">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center block">Bypass Logins for Reviewers:</span>
-            <div className="grid grid-cols-2 gap-2">
-              <button 
-                onClick={() => handleQuickLogin('user')}
-                className="p-2 text-[10px] font-bold text-primary rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all"
-              >
-                Log In: Demo Candidate
-              </button>
-              <button 
-                onClick={() => handleQuickLogin('admin')}
-                className="p-2 text-[10px] font-bold text-pink-500 rounded-lg border border-pink-500/20 bg-pink-500/5 hover:bg-pink-500/10 transition-all"
-              >
-                Log In: System Admin
-              </button>
-            </div>
-          </div>
         </CardContent>
       </Card>
-
-      {/* Interactive Simulated Social OAuth Modal */}
-      {showSocialModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <Card className="w-full max-w-sm glass border-white/10 dark:border-white/5 shadow-2xl">
-            <CardHeader className="text-center pb-2">
-              <div className="flex justify-center mb-2">
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center shadow-lg ${socialProvider === 'google' ? 'bg-red-500/20 text-red-500' : 'bg-zinc-800 text-white'}`}>
-                  {socialProvider === 'google' ? (
-                    <span className="font-extrabold text-lg">G</span>
-                  ) : (
-                    <Github className="h-6 w-6" />
-                  )}
-                </div>
-              </div>
-              <CardTitle className="text-lg font-bold">
-                Sign In with {socialProvider === 'google' ? 'Google' : 'GitHub'}
-              </CardTitle>
-              <CardDescription className="text-xs">
-                {oauthConfig.googleClientId || oauthConfig.githubClientId
-                  ? `Connecting via real ${socialProvider === 'google' ? 'Google' : 'GitHub'} OAuth. You will be redirected automatically.`
-                  : `Simulated OAuth consent screen. Enter your details to register or log in via ${socialProvider === 'google' ? 'Google' : 'GitHub'}.`
-                }
-                {!oauthConfig.googleClientId && !oauthConfig.githubClientId && (
-                  <div className="mt-2.5 p-2 rounded-lg bg-amber-500/10 text-amber-500 font-semibold border border-amber-500/15 text-[10px] text-left leading-normal">
-                    💡 To activate real OAuth, add <code>GOOGLE_CLIENT_ID</code> &amp; <code>GITHUB_CLIENT_ID</code> to your backend <code>.env</code> file.
-                  </div>
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSocialSubmit} className="space-y-4">
-                <div className="flex flex-col">
-                  <Label>Profile Name</Label>
-                  <Input 
-                    required 
-                    value={socialName} 
-                    onChange={e => setSocialName(e.target.value)} 
-                    className="h-10 text-xs font-semibold"
-                    placeholder="Enter name"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <Label>Email Address</Label>
-                  <Input 
-                    required 
-                    type="email"
-                    value={socialEmail} 
-                    onChange={e => setSocialEmail(e.target.value)} 
-                    className="h-10 text-xs font-semibold"
-                    placeholder="name@domain.com"
-                  />
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="flex-1 h-9 text-xs" 
-                    onClick={() => setShowSocialModal(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    className="flex-1 h-9 text-xs gradient-primary"
-                  >
-                    Authorize
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 };

@@ -125,7 +125,7 @@ export const Dashboard: React.FC = () => {
     });
   }, [applications]);
 
-  const COLORS = ['#10B981', '#6EE7B7', '#22D3EE', '#059669', '#34D399', '#06B6D4'];
+  const COLORS = ['#F97316', '#FB923C', '#F43F5E', '#EA580C', '#FDBA74', '#FB7185'];
 
   return (
     <div className="space-y-6">

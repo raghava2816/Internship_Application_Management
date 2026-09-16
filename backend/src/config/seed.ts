@@ -17,7 +17,7 @@ export const seedDatabase = async () => {
         linkedinUrl: 'https://linkedin.com/in/admin-tracker',
         githubUrl: 'https://github.com/admin-tracker',
         portfolioUrl: 'https://admin-tracker.dev',
-        bio: 'System Administrator for AI Internship Tracker Pro.',
+        bio: 'System Administrator for CareerFlow.',
         skills: ['System Design', 'DevOps', 'Kubernetes', 'Cloud Infrastructure'],
         settings: {
           theme: 'dark',

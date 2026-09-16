@@ -333,12 +333,12 @@ export const ResumeAnalyzer: React.FC = () => {
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none max-w-lg mx-auto">
           <defs>
             <linearGradient id="chart-grad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#10B981" />
-              <stop offset="100%" stopColor="#22D3EE" />
+              <stop offset="0%" stopColor="#F97316" />
+              <stop offset="100%" stopColor="#F43F5E" />
             </linearGradient>
             <linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10B981" stopOpacity="0.2" />
-              <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
+              <stop offset="0%" stopColor="#F97316" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#F97316" stopOpacity="0" />
             </linearGradient>
           </defs>
 
@@ -363,7 +363,7 @@ export const ResumeAnalyzer: React.FC = () => {
                 cx={p.x} 
                 cy={p.y} 
                 r={activeResume?._id === p.id ? "7" : "5"} 
-                className={`transition-all duration-200 stroke-background stroke-2 ${activeResume?._id === p.id ? 'fill-cyan-500' : 'fill-primary hover:fill-cyan-400'}`} 
+                className={`transition-all duration-200 stroke-background stroke-2 ${activeResume?._id === p.id ? 'fill-rose-500' : 'fill-primary hover:fill-rose-400'}`} 
               />
               <text x={p.x} y={p.y - 12} className="text-[10px] font-extrabold fill-foreground" textAnchor="middle">
                 {p.score}%
@@ -574,11 +574,11 @@ export const ResumeAnalyzer: React.FC = () => {
                   const isActive = analysisProgress.step === stepNum && !isDone;
                   return (
                     <div key={idx} className={`flex items-center gap-3 text-xs font-semibold transition-all duration-200 ${
-                      isDone ? 'text-emerald-500' : isActive ? 'text-foreground' : 'text-muted-foreground'
+                      isDone ? 'text-orange-500' : isActive ? 'text-foreground' : 'text-muted-foreground'
                     }`}>
                       <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border-2 transition-all duration-300 ${
                         isDone
-                          ? 'bg-emerald-500 border-emerald-500'
+                          ? 'bg-orange-500 border-orange-500'
                           : isActive
                           ? 'border-primary bg-primary/10'
                           : 'border-border bg-transparent'
@@ -619,7 +619,7 @@ export const ResumeAnalyzer: React.FC = () => {
                         cy="48"
                         r="40"
                         className={`transition-all duration-500 ease-out 
-                          ${report.score >= 80 ? 'stroke-emerald-500' : report.score >= 60 ? 'stroke-amber-500' : 'stroke-rose-500'}
+                          ${report.score >= 80 ? 'stroke-orange-500' : report.score >= 60 ? 'stroke-amber-500' : 'stroke-rose-500'}
                         `}
                         strokeWidth="8"
                         fill="transparent"
@@ -700,7 +700,7 @@ export const ResumeAnalyzer: React.FC = () => {
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Keywords Matched</span>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <span className="text-3xl font-black text-emerald-500">{report.keywordsMatchedCount || report.foundKeywords?.length || 0}</span>
+                    <span className="text-3xl font-black text-orange-500">{report.keywordsMatchedCount || report.foundKeywords?.length || 0}</span>
                   </CardContent>
                 </Card>
 
@@ -762,7 +762,7 @@ export const ResumeAnalyzer: React.FC = () => {
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Sections Present</span>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <span className="text-3xl font-black text-emerald-500">{report.sectionsPresentCount || 7} <span className="text-xs font-bold text-slate-400">/ 9</span></span>
+                    <span className="text-3xl font-black text-orange-500">{report.sectionsPresentCount || 7} <span className="text-xs font-bold text-slate-400">/ 9</span></span>
                   </CardContent>
                 </Card>
               </div>
@@ -803,8 +803,8 @@ export const ResumeAnalyzer: React.FC = () => {
                           let barColor = 'bg-rose-500';
                           let badgeBg = 'bg-rose-500/10 text-rose-700 dark:text-rose-400';
                           if (score >= 80) {
-                            barColor = 'bg-emerald-500';
-                            badgeBg = 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+                            barColor = 'bg-orange-500';
+                            badgeBg = 'bg-orange-500/10 text-orange-700 dark:text-orange-400';
                           } else if (score >= 60) {
                             barColor = 'bg-amber-500';
                             badgeBg = 'bg-amber-500/10 text-amber-700 dark:text-amber-400';
@@ -876,7 +876,7 @@ export const ResumeAnalyzer: React.FC = () => {
                                   type: 'keyword'
                                 });
                               }}
-                              className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10 px-2 py-1 rounded-lg cursor-pointer transition-colors"
+                              className="inline-flex items-center gap-1 text-[10px] font-bold bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/10 px-2 py-1 rounded-lg cursor-pointer transition-colors"
                             >
                               <Check className="h-3 w-3 shrink-0" />
                               <span>{kw}</span>
@@ -1015,7 +1015,7 @@ export const ResumeAnalyzer: React.FC = () => {
                             <div 
                               key={idx} 
                               className={`flex items-start gap-2.5 p-2 rounded-xl border transition-colors cursor-pointer
-                                ${item.done ? 'bg-emerald-500/5 border-emerald-500/10 hover:bg-emerald-500/10' : 'bg-secondary/40 border-border hover:bg-secondary/60'}
+                                ${item.done ? 'bg-orange-500/5 border-orange-500/10 hover:bg-orange-500/10' : 'bg-secondary/40 border-border hover:bg-secondary/60'}
                                 dark:border-white/5
                               `}
                             >
@@ -1043,7 +1043,7 @@ export const ResumeAnalyzer: React.FC = () => {
                                   {item.action}
                                 </p>
                                 <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full mt-1.5 inline-block
-                                  ${item.priority === 'High' ? 'bg-red-500/10 text-red-700 dark:text-red-400' : item.priority === 'Medium' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'}
+                                  ${item.priority === 'High' ? 'bg-red-500/10 text-red-700 dark:text-red-400' : item.priority === 'Medium' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' : 'bg-orange-500/10 text-orange-700 dark:text-orange-400'}
                                 `}>
                                   {item.priority} priority
                                 </span>
@@ -1445,7 +1445,7 @@ export const ResumeAnalyzer: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="font-extrabold text-base text-foreground">{modalDetails.score}/100</span>
                       <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full tracking-wider text-white
-                        ${modalDetails.score >= 80 ? 'bg-emerald-500' : modalDetails.score >= 60 ? 'bg-amber-500' : 'bg-red-500'}
+                        ${modalDetails.score >= 80 ? 'bg-orange-500' : modalDetails.score >= 60 ? 'bg-amber-500' : 'bg-red-500'}
                       `}>
                         {modalDetails.status}
                       </span>
@@ -1457,7 +1457,7 @@ export const ResumeAnalyzer: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Status:</span>
                     <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full tracking-wider text-white
-                      ${modalDetails.status.toLowerCase().includes('high') || modalDetails.status.toLowerCase().includes('missing') ? 'bg-red-500' : modalDetails.status.toLowerCase().includes('medium') || modalDetails.status.toLowerCase().includes('only') ? 'bg-amber-500' : 'bg-emerald-500'}
+                      ${modalDetails.status.toLowerCase().includes('high') || modalDetails.status.toLowerCase().includes('missing') ? 'bg-red-500' : modalDetails.status.toLowerCase().includes('medium') || modalDetails.status.toLowerCase().includes('only') ? 'bg-amber-500' : 'bg-orange-500'}
                     `}>
                       {modalDetails.status}
                     </span>
@@ -1473,7 +1473,7 @@ export const ResumeAnalyzer: React.FC = () => {
                 
                 {modalDetails.example && (
                   <div className="space-y-1.5 p-3.5 rounded-xl bg-slate-900 dark:bg-slate-800 shadow-inner">
-                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Actionable Rewrite Example:</span>
+                    <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider block">Actionable Rewrite Example:</span>
                     <p className="text-xs font-mono font-bold text-slate-100 whitespace-pre-wrap leading-relaxed">
                       {modalDetails.example}
                     </p>

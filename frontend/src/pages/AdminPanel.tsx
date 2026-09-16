@@ -159,8 +159,8 @@ export const AdminPanel: React.FC = () => {
         <div className="flex items-center gap-3">
           {/* Live connection indicator */}
           <div className="flex items-center gap-1.5 text-xs font-semibold">
-            <span className={`w-2 h-2 rounded-full ${liveConnected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
-            <span className={liveConnected ? 'text-emerald-500' : 'text-muted-foreground'}>
+            <span className={`w-2 h-2 rounded-full ${liveConnected ? 'bg-orange-400 animate-pulse' : 'bg-slate-400'}`} />
+            <span className={liveConnected ? 'text-orange-500' : 'text-muted-foreground'}>
               {liveConnected ? 'Live' : 'Offline'}
             </span>
           </div>
@@ -198,7 +198,7 @@ export const AdminPanel: React.FC = () => {
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Applications</span>
                   <span className="text-3xl font-extrabold block mt-1">{stats.applications}</span>
                 </div>
-                <div className="p-3 bg-cyan-500/10 text-cyan-500 rounded-xl">
+                <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl">
                   <FileCheck className="h-6 w-6" />
                 </div>
               </CardContent>
@@ -222,12 +222,12 @@ export const AdminPanel: React.FC = () => {
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">System DB state</span>
                   <div className="flex items-center gap-1.5 mt-2">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${
-                      stats.systemHealth.database === 'Connected' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                      stats.systemHealth.database === 'Connected' ? 'bg-orange-400 animate-pulse' : 'bg-amber-400'
                     }`} />
                     <span className="text-xs font-extrabold uppercase">{stats.systemHealth.database}</span>
                   </div>
                 </div>
-                <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
+                <div className="p-3 bg-orange-500/10 text-orange-500 rounded-xl">
                   <Database className="h-6 w-6" />
                 </div>
               </CardContent>
@@ -304,7 +304,7 @@ export const AdminPanel: React.FC = () => {
                 <Terminal className="h-5 w-5 text-primary" />
                 <span>Audit Logs Tracker</span>
                 {liveConnected && (
-                  <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-emerald-500 uppercase tracking-wider">
+                  <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-orange-500 uppercase tracking-wider">
                     <Wifi className="h-3 w-3" />
                     Live
                   </span>

@@ -8,8 +8,7 @@ import {
   GraduationCap, 
   FolderGit2, 
   ShieldCheck, 
-  LogOut,
-  Target
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -55,10 +54,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
         {/* Brand */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-border dark:border-white/5">
           <div className="flex items-center space-x-2">
-            <div className="flex items-center justify-center h-9 w-9 rounded-lg gradient-primary text-white shadow-md">
-              <Target className="h-5 w-5" />
+            <div className="flex items-center justify-center h-9 w-9 rounded-lg shadow-md overflow-hidden">
+              <img src="/logo.jpg" alt="CareerFlow Logo" className="h-full w-full object-cover" />
             </div>
-            <span className="font-bold text-base tracking-tight gradient-text">Tracker Pro</span>
+            <span className="font-bold text-base tracking-tight gradient-text">CareerFlow</span>
           </div>
         </div>
 

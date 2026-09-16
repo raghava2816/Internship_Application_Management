@@ -311,7 +311,7 @@ export const MockInterview: React.FC = () => {
               </div>
 
               {activeResume ? (
-                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-xs text-emerald-600 flex items-center gap-2 font-semibold">
+                <div className="p-3 rounded-xl bg-orange-500/5 border border-orange-500/10 text-xs text-orange-600 flex items-center gap-2 font-semibold">
                   <GraduationCap className="h-4.5 w-4.5 shrink-0" />
                   <span>Active Resume: <strong>{activeResume.fileName} ({activeResume.version})</strong> will be referenced in RAG queries.</span>
                 </div>
@@ -445,17 +445,17 @@ export const MockInterview: React.FC = () => {
           {/* AI Assessment Evaluation Panel */}
           <div className="lg:col-span-5">
             {currentQuestion?.score !== undefined ? (
-              <Card className="h-full border-t-4 border-t-emerald-500 shadow-md">
+              <Card className="h-full border-t-4 border-t-orange-500 shadow-md">
                 <CardHeader className="pb-3 border-b border-border/10">
                   <CardTitle className="text-sm font-extrabold flex items-center gap-1.5">
-                    <Award className="h-4.5 w-4.5 text-emerald-500" />
+                    <Award className="h-4.5 w-4.5 text-orange-500" />
                     <span>AI Feedback Hub</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5 pt-4">
                   {/* Score Indicator */}
                   <div className="text-center py-3 border-b border-border/10">
-                    <span className="text-3xl font-black text-emerald-500">{currentQuestion.score}%</span>
+                    <span className="text-3xl font-black text-orange-500">{currentQuestion.score}%</span>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Answer score rating</p>
                   </div>
 
@@ -499,7 +499,7 @@ export const MockInterview: React.FC = () => {
               <div className="relative shrink-0 flex items-center justify-center">
                 <svg className="w-24 h-24 transform -rotate-90">
                   <circle cx="48" cy="48" r="40" className="stroke-slate-200 dark:stroke-slate-800" strokeWidth="8" fill="transparent" />
-                  <circle cx="48" cy="48" r="40" className={`transition-all duration-500 ease-out ${overallSessionScore >= 80 ? 'stroke-emerald-500' : 'stroke-amber-500'}`} strokeWidth="8" fill="transparent" strokeDasharray={251.2} strokeDashoffset={251.2 - (251.2 * overallSessionScore) / 100} strokeLinecap="round" />
+                  <circle cx="48" cy="48" r="40" className={`transition-all duration-500 ease-out ${overallSessionScore >= 80 ? 'stroke-orange-500' : 'stroke-amber-500'}`} strokeWidth="8" fill="transparent" strokeDasharray={251.2} strokeDashoffset={251.2 - (251.2 * overallSessionScore) / 100} strokeLinecap="round" />
                 </svg>
                 <div className="absolute flex flex-col items-center justify-center">
                   <span className="text-2xl font-black text-foreground leading-none">{overallSessionScore}%</span>
@@ -551,7 +551,7 @@ export const MockInterview: React.FC = () => {
                     </div>
                     <div className="shrink-0 text-right">
                       <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full
-                        ${q.score && q.score >= 80 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}
+                        ${q.score && q.score >= 80 ? 'bg-orange-500/10 text-orange-500' : 'bg-amber-500/10 text-amber-500'}
                       `}>
                         {q.score}%
                       </span>
@@ -567,7 +567,7 @@ export const MockInterview: React.FC = () => {
               <Card className="shadow-md border border-border/30 dark:border-white/5">
                 <CardHeader className="pb-3 border-b border-border/10">
                   <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <CheckCircle className="h-4 w-4 text-emerald-500" />
+                    <CheckCircle className="h-4 w-4 text-orange-500" />
                     <span>Actionable Improvements</span>
                   </CardTitle>
                 </CardHeader>
@@ -612,7 +612,7 @@ export const MockInterview: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="font-extrabold text-base text-foreground">{modalDetails.score}/100</span>
                       <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full tracking-wider
-                        ${modalDetails.score >= 80 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}
+                        ${modalDetails.score >= 80 ? 'bg-orange-500/10 text-orange-500' : 'bg-amber-500/10 text-amber-500'}
                       `}>
                         {modalDetails.status}
                       </span>
@@ -630,7 +630,7 @@ export const MockInterview: React.FC = () => {
                 {modalDetails.example && (
                   <div className="space-y-1.5 p-3.5 rounded-xl border border-primary/20 bg-primary/5 dark:border-white/5">
                     <span className="text-[10px] font-bold text-primary uppercase tracking-wider block">Actionable Suggestions:</span>
-                    <p className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-xs font-mono font-bold text-orange-700 dark:text-orange-300 whitespace-pre-wrap leading-relaxed">
                       {modalDetails.example}
                     </p>
                   </div>

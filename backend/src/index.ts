@@ -3,6 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 dotenv.config();
 import dns from 'dns';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 
 // Force Node.js DNS resolver to use IPv4 first. This prevents IPv6 SRV resolution failures on Jio/consumer networks.
 dns.setDefaultResultOrder('ipv4first');
@@ -21,9 +24,24 @@ const PORT = process.env.PORT || 5000;
 // Connect to Database
 connectDB();
 
-// Middlewares
+// Security and Optimization Middlewares
+app.use(helmet());
+app.use(compression());
+
+// Rate Limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: { success: false, message: 'Too many requests from this IP, please try again after 15 minutes' }
+});
+app.use('/api/', apiLimiter);
+
+// CORS
+const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['*'];
 app.use(cors({
-  origin: '*', // Allow connections from frontend dev server
+  origin: process.env.FRONTEND_URL || '*', // Restrict to frontend in production
   credentials: true
 }));
 app.use(express.json());
@@ -54,7 +72,7 @@ app.use('/api/admin', adminRoutes);
 // Base Route
 app.get('/', (req, res) => {
   res.json({
-    message: 'Welcome to AI Internship Tracker Pro API Services',
+    message: 'Welcome to CareerFlow API Services',
     status: 'healthy',
     timestamp: new Date()
   });

@@ -374,7 +374,7 @@ export const Tracker: React.FC = () => {
                               <p className="text-xs text-muted-foreground font-medium">{app.role}</p>
                             </div>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider
-                              ${app.priority === 'High' ? 'bg-red-500/10 text-red-500' : app.priority === 'Medium' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}
+                              ${app.priority === 'High' ? 'bg-red-500/10 text-red-500' : app.priority === 'Medium' ? 'bg-amber-500/10 text-amber-500' : 'bg-orange-500/10 text-orange-500'}
                             `}>
                               {app.priority}
                             </span>
@@ -546,7 +546,7 @@ export const Tracker: React.FC = () => {
                     <TableCell>{new Date(app.appliedDate).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider
-                        ${app.priority === 'High' ? 'bg-red-500/10 text-red-500' : app.priority === 'Medium' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}
+                        ${app.priority === 'High' ? 'bg-red-500/10 text-red-500' : app.priority === 'Medium' ? 'bg-amber-500/10 text-amber-500' : 'bg-orange-500/10 text-orange-500'}
                       `}>
                         {app.priority}
                       </span>
@@ -632,7 +632,7 @@ export const Tracker: React.FC = () => {
                           <h4 className="font-black text-sm text-foreground">{job.company}</h4>
                           <p className="text-xs text-muted-foreground font-semibold mt-0.5">{job.role}</p>
                         </div>
-                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-full shrink-0">
+                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 bg-orange-500/10 text-orange-500 rounded-full shrink-0">
                           {job.matchPercentage}% Match
                         </span>
                       </div>
@@ -655,7 +655,7 @@ export const Tracker: React.FC = () => {
                           <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Matched skills:</span>
                           <div className="flex flex-wrap gap-1">
                             {job.skillsMatched.map((sk: string, i: number) => (
-                              <span key={i} className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold">{sk}</span>
+                              <span key={i} className="text-[8px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 font-bold">{sk}</span>
                             ))}
                             {job.skillsMatched.length === 0 && <span className="text-[8px] text-slate-400 italic">None</span>}
                           </div>
@@ -834,7 +834,7 @@ export const Tracker: React.FC = () => {
                   <span className="text-xs font-bold uppercase tracking-wider">AI Success Prediction:</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center py-2">
-                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+                  <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500">
                     <span className="text-xl font-bold">{selectedApp.predictions.interviewProbability}%</span>
                     <p className="text-[10px] uppercase font-bold tracking-tight">Interview Chance</p>
                   </div>

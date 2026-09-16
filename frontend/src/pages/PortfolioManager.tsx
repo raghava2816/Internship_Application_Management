@@ -255,7 +255,7 @@ export const PortfolioManager: React.FC = () => {
                     cy="48"
                     r="40"
                     className={`transition-all duration-500 ease-out 
-                      ${profileStrength >= 80 ? 'stroke-emerald-500' : profileStrength >= 50 ? 'stroke-amber-500' : 'stroke-rose-500'}
+                      ${profileStrength >= 80 ? 'stroke-orange-500' : profileStrength >= 50 ? 'stroke-amber-500' : 'stroke-rose-500'}
                     `}
                     strokeWidth="8"
                     fill="transparent"
@@ -273,21 +273,21 @@ export const PortfolioManager: React.FC = () => {
               <ul className="text-xs text-slate-500 space-y-2 pt-2 font-semibold">
                 <li className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
-                    <CheckCircle className={`h-4 w-4 ${profileUrlInput.linkedin && profileUrlInput.github ? 'text-emerald-500' : 'text-slate-300'}`} />
+                    <CheckCircle className={`h-4 w-4 ${profileUrlInput.linkedin && profileUrlInput.github ? 'text-orange-500' : 'text-slate-300'}`} />
                     <span>Social profiles linked</span>
                   </span>
                   <span className="text-[10px] text-slate-400">30%</span>
                 </li>
                 <li className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
-                    <CheckCircle className={`h-4 w-4 ${projects.length > 0 ? 'text-emerald-500' : 'text-slate-300'}`} />
+                    <CheckCircle className={`h-4 w-4 ${projects.length > 0 ? 'text-orange-500' : 'text-slate-300'}`} />
                     <span>Technical projects</span>
                   </span>
                   <span className="text-[10px] text-slate-400">15%</span>
                 </li>
                 <li className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
-                    <CheckCircle className={`h-4 w-4 ${certificates.length > 0 ? 'text-emerald-500' : 'text-slate-300'}`} />
+                    <CheckCircle className={`h-4 w-4 ${certificates.length > 0 ? 'text-orange-500' : 'text-slate-300'}`} />
                     <span>Certificates loaded</span>
                   </span>
                   <span className="text-[10px] text-slate-400">15%</span>
@@ -307,9 +307,9 @@ export const PortfolioManager: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-bold">LinkedIn URL</Label>
                   <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full flex items-center gap-1
-                    ${profileUrlInput.linkedin ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}
+                    ${profileUrlInput.linkedin ? 'bg-orange-500/10 text-orange-500' : 'bg-amber-500/10 text-amber-500'}
                   `}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${profileUrlInput.linkedin ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                    <span className={`h-1.5 w-1.5 rounded-full ${profileUrlInput.linkedin ? 'bg-orange-500' : 'bg-amber-500'}`} />
                     {profileUrlInput.linkedin ? 'Connected' : 'Missing'}
                   </span>
                 </div>
@@ -328,9 +328,9 @@ export const PortfolioManager: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-bold">GitHub Profile URL</Label>
                   <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full flex items-center gap-1
-                    ${profileUrlInput.github ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}
+                    ${profileUrlInput.github ? 'bg-orange-500/10 text-orange-500' : 'bg-amber-500/10 text-amber-500'}
                   `}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${profileUrlInput.github ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                    <span className={`h-1.5 w-1.5 rounded-full ${profileUrlInput.github ? 'bg-orange-500' : 'bg-amber-500'}`} />
                     {profileUrlInput.github ? 'Connected' : 'Missing'}
                   </span>
                 </div>
@@ -349,9 +349,9 @@ export const PortfolioManager: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-bold">Personal Portfolio URL</Label>
                   <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full flex items-center gap-1
-                    ${profileUrlInput.portfolio ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}
+                    ${profileUrlInput.portfolio ? 'bg-orange-500/10 text-orange-500' : 'bg-amber-500/10 text-amber-500'}
                   `}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${profileUrlInput.portfolio ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                    <span className={`h-1.5 w-1.5 rounded-full ${profileUrlInput.portfolio ? 'bg-orange-500' : 'bg-amber-500'}`} />
                     {profileUrlInput.portfolio ? 'Connected' : 'Missing'}
                   </span>
                 </div>
@@ -431,7 +431,7 @@ export const PortfolioManager: React.FC = () => {
                       ))}
                     </div>
                     {proj.aiReview && (
-                      <span className="text-[10px] font-black uppercase text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full font-sans">
+                      <span className="text-[10px] font-black uppercase text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded-full font-sans">
                         Quality: {proj.aiReview.qualityScore}%
                       </span>
                     )}
@@ -571,7 +571,7 @@ export const PortfolioManager: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="font-extrabold text-base text-foreground">{modalDetails.score}/100</span>
                       <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full tracking-wider
-                        ${modalDetails.score >= 80 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}
+                        ${modalDetails.score >= 80 ? 'bg-orange-500/10 text-orange-500' : 'bg-amber-500/10 text-amber-500'}
                       `}>
                         {modalDetails.status}
                       </span>
@@ -589,7 +589,7 @@ export const PortfolioManager: React.FC = () => {
                 {modalDetails.example && (
                   <div className="space-y-1.5 p-3.5 rounded-xl border border-primary/20 bg-primary/5 dark:border-white/5">
                     <span className="text-[10px] font-bold text-primary uppercase tracking-wider block">Actionable Rewrite Example:</span>
-                    <p className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-xs font-mono font-bold text-orange-700 dark:text-orange-300 whitespace-pre-wrap leading-relaxed">
                       {modalDetails.example}
                     </p>
                   </div>
